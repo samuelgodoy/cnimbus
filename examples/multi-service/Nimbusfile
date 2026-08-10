@@ -1,0 +1,22 @@
+KERNEL latest-stable
+BUSYBOX latest
+ARCH amd64
+HOSTNAME cnimbus-multiservice-demo
+DHCP true
+
+# ENTRYPOINT/CMD is the "main" respawned process; SERVICE adds more,
+# each under its own supervisor, all running side by side. Repeatable.
+COPY ./helloserver /usr/bin/helloserver
+ENTRYPOINT /usr/bin/helloserver
+CMD :8080
+
+# A second helloserver instance on a different port -- stands in for
+# "any second process you want alongside the main one" (a metrics
+# exporter, a sidecar, a second listener, etc).
+SERVICE helloserver-admin /usr/bin/helloserver :8081
+
+# A third, trivial service with no COPY'd binary at all, just to show
+# SERVICE works with any command BusyBox itself can already run.
+SERVICE heartbeat ["/bin/sh", "-c", "while true; do echo heartbeat; sleep 30; done"]
+
+FORMAT iso

@@ -1,0 +1,1328 @@
+\documentclass[11pt,letterpaper]{report}
+
+% ---------------------------------------------------------------------
+% Pacotes
+% ---------------------------------------------------------------------
+\usepackage[margin=1in]{geometry}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{longtable}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{tocloft}
+\usepackage{xstring}
+
+% ---------------------------------------------------------------------
+% Cores
+% ---------------------------------------------------------------------
+\definecolor{cnimbusblue}{RGB}{25,55,110}
+\definecolor{codebg}{RGB}{245,245,247}
+\definecolor{codeframe}{RGB}{200,200,205}
+\definecolor{commentgray}{RGB}{110,110,110}
+\definecolor{keywordblue}{RGB}{20,90,160}
+
+% ---------------------------------------------------------------------
+% Estilo das seções
+% ---------------------------------------------------------------------
+\titleformat{\chapter}[display]
+  {\normalfont\bfseries\color{cnimbusblue}}
+  {\Large\chaptertitlename\ \thechapter}
+  {10pt}{\Huge}
+\titleformat{\section}
+  {\normalfont\Large\bfseries\color{cnimbusblue}}{\thesection}{1em}{}
+\titleformat{\subsection}
+  {\normalfont\large\bfseries\color{cnimbusblue}}{\thesubsection}{1em}{}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\textit{Manual do Usuário do cnimbus}}
+\fancyhead[R]{\small\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% ---------------------------------------------------------------------
+% Blocos de código: dois estilos -- Nimbusfile (estilo Dockerfile) e shell
+% ---------------------------------------------------------------------
+\lstdefinelanguage{nimbusfile}{
+  morekeywords={KERNEL,BUSYBOX,ARCH,VGA,HOSTNAME,DHCP,IP,DNS,NTP,FORMAT,
+    USER,WORKDIR,LABEL,EXPOSE,ARG,ENV,VOLUME,AGENT,FIREWALL,FIREWALL6,
+    FIREWALL_ON_ERROR,HEALTHCHECK,RESTART,STOPGRACE,TMPSIZE,PIECESKEY,
+    COPY,ADD,ENTRYPOINT,CMD,SERVICE,HARDBOOT,WIFI,WIFIPSK,WIFICOUNTRY},
+  sensitive=true,
+  morecomment=[l]{\#},
+  morestring=[b]",
+}
+
+\lstdefinestyle{nimbusstyle}{
+  language=nimbusfile,
+  backgroundcolor=\color{codebg},
+  rulecolor=\color{codeframe},
+  frame=single,
+  framesep=4pt,
+  basicstyle=\ttfamily\footnotesize,
+  keywordstyle=\bfseries\color{keywordblue},
+  commentstyle=\itshape\color{commentgray},
+  stringstyle=\color{teal},
+  breaklines=true,
+  breakatwhitespace=false,
+  columns=fullflexible,
+  showstringspaces=false,
+  tabsize=2,
+  xleftmargin=1em,
+  xrightmargin=1em,
+}
+
+\lstdefinestyle{shellstyle}{
+  backgroundcolor=\color{black!92},
+  basicstyle=\ttfamily\footnotesize\color{white},
+  breaklines=true,
+  breakatwhitespace=false,
+  columns=fullflexible,
+  frame=single,
+  rulecolor=\color{black},
+  framesep=4pt,
+  showstringspaces=false,
+  xleftmargin=1em,
+  xrightmargin=1em,
+}
+
+\lstnewenvironment{nimbusfile}{\lstset{style=nimbusstyle}}{}
+\lstnewenvironment{shell}{\lstset{style=shellstyle}}{}
+
+% \flag/\dir/\cmdname renderizam flags de CLI e diretivas do Nimbusfile
+% inline. \texttt{--foo} puro funde "--" em um en-dash sob T1/cm-super,
+% então toda flag aparecia com um único traço -- corrigido substituindo
+% "--" por "-{}-" (um grupo vazio quebra a fusão) antes de tipografar,
+% uma vez só, na própria macro em vez de à mão em cada uma das muitas
+% chamadas abaixo.
+\newcommand{\dashfix}[1]{\StrSubstitute{#1}{--}{-{}-}}
+\newcommand{\flag}[1]{\texttt{\textbf{\dashfix{#1}}}}
+\newcommand{\dir}[1]{\texttt{\textbf{\dashfix{#1}}}}
+\newcommand{\cmdname}[1]{\texttt{\textbf{\dashfix{#1}}}}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=cnimbusblue,
+  urlcolor=cnimbusblue,
+  citecolor=cnimbusblue,
+  pdftitle={Manual do Usuário do cnimbus},
+  pdfauthor={projeto cnimbus},
+}
+
+\setlength{\parskip}{0.5em}
+\setlength{\parindent}{0pt}
+
+% ---------------------------------------------------------------------
+\begin{document}
+
+% =======================================================================
+% PÁGINA DE TÍTULO
+% =======================================================================
+\begin{titlepage}
+  \centering
+  \vspace*{2cm}
+  {\Huge\bfseries\color{cnimbusblue} cnimbus}\\[0.5cm]
+  {\Large Manual do Usuário}\\[0.3cm]
+  {\large Construindo e Inicializando Imagens de VM Linux Mínimas e Distroless}\\[2cm]
+
+  \rule{0.8\textwidth}{0.4pt}\\[0.4cm]
+  {\large\itshape ``A mesma ideia de um Dockerfile: declare o que você quer, execute um comando.''}\\[0.4cm]
+  \rule{0.8\textwidth}{0.4pt}\\[3cm]
+
+  \begin{tabular}{rl}
+    \textbf{Cobre:} & \texttt{prepare}, \texttt{build-disk}, \texttt{run}, \texttt{keygen} \\
+    & Backends QEMU, VirtualBox, VMware, Hyper-V \\
+    & A referência completa de diretivas do Nimbusfile \\
+    & Assinatura de pieces, assinatura EFI-stub \& UKI \\
+    & Boot em hardware físico (\texttt{HARDBOOT eth}/\texttt{wifi}/\texttt{eth+wifi}) \\
+    & Exemplos práticos e compiláveis \\
+  \end{tabular}
+
+  \vfill
+  {\small Esta versão do documento corresponde à linha de desenvolvimento v1.0 do \texttt{cnimbus}.\\
+  Gerado como parte da própria documentação do projeto --
+  veja \texttt{README.md} e \texttt{Tasks.md} na raiz do repositório
+  para a fonte de verdade subjacente, continuamente validada, que
+  este manual resume.\\[0.3cm]
+  \textit{Termos técnicos, comandos, nomes de flags/diretivas e todo
+  código permanecem em inglês, como no projeto original.}}
+\end{titlepage}
+
+\tableofcontents
+\clearpage
+
+% =======================================================================
+\chapter{Introdução}
+% =======================================================================
+
+\section{O Que É o cnimbus}
+
+\textbf{cnimbus} é uma ferramenta de linha de comando que constrói
+imagens de máquina virtual Linux mínimas e com propósito específico a
+partir de um único arquivo declarativo --- um \textbf{Nimbusfile} ---
+e as inicializa sob um hypervisor real. O modelo mental é
+deliberadamente o mesmo que o Docker popularizou: você declara o que
+quer (uma versão de kernel, uma configuração de rede, um ou mais
+processos para executar), e o \texttt{cnimbus} faz o resto: busca e
+compila um kernel, monta um sistema de arquivos raiz mínimo baseado em
+BusyBox, e monta uma imagem ISO ou disco raw inicializável.
+
+Onde o cnimbus difere fortemente de um runtime de containers é no que
+ele produz. Um container compartilha o kernel do host; uma imagem
+cnimbus \textbf{é} seu próprio kernel mais um sistema de arquivos raiz
+minúsculo (tipicamente abaixo de 20 MiB), somente leitura, residente em
+RAM. Não há shell instalado por padrão, nenhum gerenciador de pacotes,
+e nenhum armazenamento persistente gravável a menos que você declare
+explicitamente um \dir{VOLUME}. Cada imagem é construída para exatamente
+um propósito: executar o processo (ou o punhado de processos) que você
+declarou, e nada mais.
+
+\section{Filosofia de Design}
+
+Quatro decisões moldam todo o resto deste manual:
+
+\begin{itemize}
+  \item \textbf{Distroless.} Não há um userland de propósito geral.
+    O BusyBox fornece apenas o pequeno conjunto de applets que a
+    sequência de boot e os \dir{SERVICE}s que você declarou realmente
+    precisam (\texttt{busybox -{}-install} conecta exatamente esses,
+    não os cerca de 400 applets que uma build padrão do BusyBox traz).
+  \item \textbf{Sem publicação, sem registro hospedado.} O cnimbus não
+    hospeda nem distribui ``pieces'' pré-construídas (binários de
+    kernel/BusyBox/iptables). Você constrói as suas próprias, uma vez,
+    e as armazena em cache localmente ou em infraestrutura que você
+    controla. Não existe um equivalente do Docker Hub para o cnimbus,
+    por decisão explícita de produto.
+  \item \textbf{Somente auto-construído.} Todo artefato que termina na
+    imagem é ou compilado pelo \texttt{cnimbus prepare} a partir de
+    fonte upstream (kernel.org, BusyBox, iptables, wpa\_supplicant) com
+    sua proveniência verificada (assinaturas PGP onde o upstream
+    publica, hash fixado em todo o resto), ou explicitamente copiado
+    por você via \dir{COPY}. Nada é buscado de terceiros não
+    verificados em tempo de boot ou de build.
+  \item \textbf{Comportamento real, validado por boot.} Todo mecanismo
+    descrito neste manual --- cada diretiva, cada backend, cada flag
+    --- foi exercitado contra uma máquina virtual real, de verdade
+    inicializada, durante o desenvolvimento deste projeto, não apenas
+    testado por unidade. Onde uma limitação real foi encontrada (e
+    várias foram), ela é documentada como tal, em vez de disfarçada.
+\end{itemize}
+
+\section{Como Este Manual Está Organizado}
+
+\begin{itemize}
+  \item O Capítulo~\ref{ch:install} coloca o \texttt{cnimbus} compilado
+    e suas primeiras pieces prontas.
+  \item O Capítulo~\ref{ch:quickstart} percorre o caminho mais curto
+    possível de um diretório vazio até uma VM inicializada.
+  \item O Capítulo~\ref{ch:nimbusfile} é a referência completa de
+    diretivas do Nimbusfile --- o coração deste manual.
+  \item O Capítulo~\ref{ch:cli} documenta todo subcomando e flag.
+  \item O Capítulo~\ref{ch:backends} cobre os quatro backends de
+    hypervisor suportados e como alcançar um serviço rodando dentro do
+    guest.
+  \item O Capítulo~\ref{ch:security} cobre a assinatura de pieces e a
+    assinatura de kernel EFI-stub / Secure Boot / UKI.
+  \item O Capítulo~\ref{ch:hardboot} cobre o perfil de boot opt-in para
+    hardware físico (bare-metal).
+  \item O Capítulo~\ref{ch:examples} percorre cada exemplo enviado no
+    diretório \texttt{examples/} do repositório, do início ao fim.
+  \item O Capítulo~\ref{ch:troubleshooting} reúne limitações conhecidas
+    e suas soluções alternativas.
+  \item Os apêndices trazem uma referência rápida de uma página das
+    diretivas e as métricas medidas de requisitos não-funcionais do
+    projeto.
+\end{itemize}
+
+% =======================================================================
+\chapter{Instalação}
+\label{ch:install}
+% =======================================================================
+
+\section{Requisitos}
+
+\begin{itemize}
+  \item \textbf{Docker} (Desktop no Windows/macOS, Engine no Linux) ou
+    \textbf{Podman} --- este é o único requisito real. É onde a
+    compilação real de kernel/BusyBox/iptables acontece
+    (\texttt{cnimbus prepare}); \texttt{cnimbus build-disk} e
+    \texttt{cnimbus run} não precisam de Docker/Podman nenhum, uma vez
+    que as pieces já existam. Go \textit{não} é um requisito: o próprio
+    binário \texttt{cnimbus} pode ser compilado inteiramente dentro de
+    um container Docker/Podman, sem nenhum Go instalado no host --- veja
+    \texttt{BUILD.md} na raiz do repositório.
+  \item \textbf{Opcional} --- só necessário para de fato inicializar
+    uma imagem com \texttt{cnimbus run} (o objetivo central do projeto
+    é montar a imagem; inicializá-la é um passo posterior e dispensável):
+    um entre \textbf{QEMU}, \textbf{VirtualBox}, \textbf{VMware
+    Workstation/Player}, ou \textbf{Hyper-V}.
+\end{itemize}
+
+\section{Compilando a Partir do Código-Fonte}
+
+Com Go instalado no host:
+
+\begin{shell}
+git clone <este-repositorio>
+cd cnimbus
+go build -o cnimbus ./cmd/cnimbus
+\end{shell}
+
+Sem Go instalado no host --- apenas Docker (ou Podman), o único
+requisito real do projeto:
+
+\begin{shell}
+docker run --rm -v "$(pwd)":/src -w /src \
+  -e CGO_ENABLED=0 -e GOOS=linux -e GOARCH=amd64 \
+  golang:1.26.5 go build -o cnimbus ./cmd/cnimbus
+\end{shell}
+
+Ambos os caminhos produzem um único binário \texttt{cnimbus} (ou
+\texttt{cnimbus.exe} no Windows) sem dependências. Veja
+\texttt{BUILD.md} na raiz do repositório para a matriz completa de
+compilação cruzada (Windows, Linux e macOS, em amd64, arm64 e ---
+experimentalmente --- riscv64 só para Linux), incluindo os comandos
+equivalentes para cada plataforma via Docker/Podman.
+
+\section{Compilando Suas Primeiras Pieces}
+
+\texttt{prepare} é o único subcomando que fala com o Docker. Ele baixa
+e compila um kernel (verificando sua assinatura PGP contra as chaves
+publicadas pelo próprio kernel.org, buscadas em tempo real via Web Key
+Directory), constrói um BusyBox correspondente, e constrói um
+\texttt{iptables} estático --- juntos chamados de \textit{pieces}.
+
+\begin{shell}
+./cnimbus prepare --out ./pieces
+\end{shell}
+
+A primeira execução leva alguns minutos (uma compilação real de
+kernel). Toda execução posterior é instantânea se nada mudou, já que o
+Thunder (o pequeno programa em Go que conduz a build real dentro do
+container Docker) verifica um lockfile sha256 antes de decidir pular o
+trabalho. O resultado fica namespaced por arquitetura em
+\texttt{./pieces/amd64/} (ou \texttt{./pieces/arm64/}):
+
+\begin{shell}
+pieces/amd64/
+  vmlinuz
+  busybox
+  busybox-manifest.tsv
+  iptables
+  pieces.json
+  pieces.sha256
+\end{shell}
+
+Tudo a partir daqui --- todo exemplo neste manual --- assume que esse
+diretório existe.
+
+% =======================================================================
+\chapter{Começo Rápido}
+\label{ch:quickstart}
+% =======================================================================
+
+Este capítulo constrói a menor imagem funcional possível: um servidor
+HTTP estático em Go, alcançável a partir do seu host, inicializado sob
+o QEMU.
+
+\section{Passo 1: Um Servidor Mínimo}
+
+\begin{shell}
+mkdir my-first-vm && cd my-first-vm
+cat > server.go << 'EOF'
+package main
+
+import ("fmt"; "log"; "net/http")
+
+func main() {
+    http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+        fmt.Fprintln(w, "hello from cnimbus")
+    })
+    log.Println("listening on :8080")
+    log.Fatal(http.ListenAndServe(":8080", nil))
+}
+EOF
+GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o helloserver server.go
+\end{shell}
+
+\texttt{CGO\_ENABLED=0} importa: a imagem não tem biblioteca C
+instalada, então um binário dinamicamente ligado falharia ao iniciar.
+
+\section{Passo 2: O Nimbusfile}
+
+Um Nimbusfile mínimo usando os valores padrão (\texttt{latest-stable},
+\texttt{latest}) já é suficiente para o exemplo acima. Mas em builds
+reais e reproduzíveis --- especialmente em CI, ou quando você precisa
+que o mesmo Nimbusfile produza bit a bit a mesma imagem meses depois
+--- é melhor fixar versões exatas em vez de confiar em ``a mais recente
+de hoje''. Os dois exemplos abaixo mostram ambos os estilos.
+
+\textbf{Nimbusfile mínimo (versões flutuantes):}
+
+\begin{nimbusfile}
+KERNEL latest-stable
+BUSYBOX latest
+ARCH amd64
+HOSTNAME my-first-vm
+DHCP true
+
+COPY ./helloserver /usr/bin/helloserver
+ENTRYPOINT /usr/bin/helloserver
+CMD :8080
+
+FORMAT iso
+\end{nimbusfile}
+
+\textbf{Nimbusfile com versões reais fixadas (build reproduzível):}
+
+\begin{nimbusfile}
+KERNEL 6.9.4
+BUSYBOX 1.36.1
+ARCH amd64
+HOSTNAME my-first-vm-pinned
+DHCP true
+
+COPY ./helloserver /usr/bin/helloserver
+ENTRYPOINT /usr/bin/helloserver
+CMD :8080
+
+FORMAT iso
+\end{nimbusfile}
+
+Com \dir{KERNEL}/\dir{BUSYBOX} fixados em números de versão exatos (em
+vez de \texttt{latest-stable}/\texttt{latest}), o mesmo Nimbusfile
+compila exatamente o mesmo par kernel+BusyBox hoje e em qualquer data
+futura --- o único jeito de garantir que uma imagem seja realmente
+reproduzível, já que ``a versão mais recente do kernel.org'' muda com
+o tempo por definição. Antes de testar que este segundo Nimbusfile
+realmente funciona, compile as pieces fixadas e depois monte a imagem:
+
+\begin{shell}
+../cnimbus prepare --kernel 6.9.4 --busybox 1.36.1 --out ../pieces-pinned
+../cnimbus build-disk -f Nimbusfile.pinned --pieces ../pieces-pinned
+\end{shell}
+
+\section{Passo 3: Compilar}
+
+\begin{shell}
+../cnimbus build-disk --pieces ../pieces
+\end{shell}
+
+Isso produz \texttt{my-first-vm.iso} no diretório atual --- tipicamente
+com menos de 20 MiB.
+
+\section{Passo 4: Inicializar e Alcançar}
+
+\begin{shell}
+../cnimbus run my-first-vm.iso
+\end{shell}
+
+Por padrão isso inicializa sob o QEMU com um console serial e
+redireciona a porta 8080 do host para a porta 8080 do guest. De outro
+terminal:
+
+\begin{shell}
+curl http://127.0.0.1:8080/
+# hello from cnimbus
+\end{shell}
+
+Esse é o ciclo completo: declarar, compilar, inicializar, alcançar.
+Todo o restante deste manual trata das muitas coisas que você pode
+adicionar ao Nimbusfile, ou flags que você pode passar para mudar como
+a imagem é construída ou inicializada.
+
+% =======================================================================
+\chapter{O Nimbusfile}
+\label{ch:nimbusfile}
+% =======================================================================
+
+\section{Conceitos}
+
+Um Nimbusfile é um arquivo de texto puro, uma diretiva por linha
+(linhas longas podem ser continuadas com uma barra invertida no final,
+como em um Dockerfile). Comentários começam com \texttt{\#}.
+\texttt{cnimbus init} escreve um Nimbusfile inicial totalmente
+comentado no diretório atual --- útil como referência viva ao lado
+deste capítulo.
+
+Existem duas categorias de diretiva:
+
+\begin{itemize}
+  \item \textbf{Lidas apenas pelo \texttt{prepare}} (\dir{KERNEL},
+    \dir{BUSYBOX}, \dir{VGA}, \dir{HARDBOOT}): afetam qual kernel é
+    compilado, então precisam ser conhecidas \textit{antes} das pieces
+    existirem, não apenas antes da imagem ser montada.
+  \item \textbf{Lidas apenas pelo \texttt{build-disk}} (todo o resto):
+    afetam como a imagem é montada a partir de pieces já existentes, e
+    podem mudar entre builds sem recompilar nada.
+\end{itemize}
+
+\dir{ARCH} é lida por \textit{ambos} os comandos, já que determina
+tanto o que o \texttt{prepare} compila quanto quais pieces
+namespaced-por-arquitetura o \texttt{build-disk} deve buscar.
+
+Toda diretiva que também tem uma flag de linha de comando com o mesmo
+nome segue uma regra consistente: \textbf{a flag sempre vence} sobre o
+Nimbusfile. Isso permite que um único Nimbusfile sirva a múltiplas
+builds (uma matriz de CI construindo tanto \texttt{amd64} quanto
+\texttt{arm64} a partir do mesmo arquivo, por exemplo) sem editá-lo.
+
+\section{Referência Completa de Diretivas}
+
+\subsection{Identidade da Imagem e Alvo de Boot}
+
+\begin{longtable}{p{4.6cm}p{8.9cm}}
+\toprule
+\textbf{Diretiva} & \textbf{Significado} \\
+\midrule
+\endhead
+\dir{KERNEL <version>} & \texttt{latest-stable}, \texttt{latest-longterm}, ou uma versão explícita (ex. \texttt{6.9.4}). Lida apenas pelo \texttt{prepare}. \\
+\dir{BUSYBOX <version>} & Uma versão explícita, ou \texttt{latest} para o padrão do próprio cnimbus. Lida apenas pelo \texttt{prepare}. \\
+\dir{ARCH <amd64|arm64>} & Arquitetura de destino (padrão \texttt{amd64}). Lida tanto pelo \texttt{prepare} quanto pelo \texttt{build-disk}. \\
+\dir{VGA <true|false>} & Habilita um console VGA/framebuffer real (padrão \texttt{false} --- o console serial está sempre disponível independentemente). Também ativa um banner no console: assim que a rede sobe, todo endereço IPv4 (e IPv6, se houver) de cada interface é impresso na tela --- a única forma de descobrir o endereço da imagem sem um shell para entrar. Lida apenas pelo \texttt{prepare}. \\
+\dir{HARDBOOT <none|eth|wifi|eth+wifi>} & Perfil de boot em hardware físico (padrão \texttt{none}). Muda quais drivers de kernel são compilados --- veja o Capítulo~\ref{ch:hardboot}. Lida apenas pelo \texttt{prepare}. \\
+\dir{FORMAT <iso|raw|vhd>} & \texttt{iso}: uma imagem de disco óptico inicializável para uso em VM. \texttt{raw}: um disco GPT (ESP UEFI + partição raiz SquashFS), o formato para templates de disco em nuvem \textit{e} boot USB/bare-metal. \texttt{vhd}: o mesmo layout raw envolto em um footer VHD Fixed real, pronto para o Hyper-V sem precisar de um passo \texttt{run} separado. \\
+\bottomrule
+\end{longtable}
+
+\subsection{Rede}
+
+\begin{longtable}{p{4.2cm}p{9.3cm}}
+\toprule
+\textbf{Diretiva} & \textbf{Significado} \\
+\midrule
+\endhead
+\dir{HOSTNAME <name>} & Hostname da imagem. \\
+\dir{DHCP <true|false>} & Sobe a \texttt{eth0} via DHCP no boot. \\
+\dir{IP <addr> <mask> <gw>} & IP estático em vez de DHCP; vence o DHCP se ambos estiverem definidos. \\
+\dir{DNS <addr>} & Um nameserver explícito, sobrescrevendo o que o DHCP forneceu. Repetível. \\
+\dir{NTP <server|false>} & Sincroniza o relógio no boot (padrão \texttt{pool.ntp.org}). Repetível; \texttt{false} desativa. Precisa de rede configurada. \\
+\dir{WIFI <ssid>} & Rede WiFi para associar. Requer \dir{HARDBOOT wifi} ou \dir{HARDBOOT eth+wifi}. Veja o Capítulo~\ref{ch:hardboot}. \\
+\dir{WIFIPSK <passphrase|hex-key>} & Credencial WPA2-PSK para \dir{WIFI}. Requer \dir{HARDBOOT wifi} ou \dir{HARDBOOT eth+wifi}. \\
+\dir{WIFICOUNTRY <code>} & Domínio regulatório de duas letras (ex. \texttt{US}, \texttt{BR}) para o rádio WiFi. Requer \dir{HARDBOOT wifi} ou \dir{HARDBOOT eth+wifi}. \\
+\bottomrule
+\end{longtable}
+
+\subsection{Processo e Sistema de Arquivos}
+
+\begin{longtable}{p{4.2cm}p{9.3cm}}
+\toprule
+\textbf{Diretiva} & \textbf{Significado} \\
+\midrule
+\endhead
+\dir{USER <name>} & Executa todo processo com esta conta sem privilégios (uid/gid 1000) em vez de root. \\
+\dir{WORKDIR <path>} & Diretório de trabalho para todo processo (padrão \texttt{/}). \\
+\dir{ENV <KEY>=<VALUE>} & Variável de ambiente exportada para todo processo. Repetível. \\
+\dir{LABEL <KEY>=<VALUE>} & Metadado livre escrito em \texttt{/etc/cnimbus-release}. Sem efeito no boot. Repetível. \\
+\dir{EXPOSE <port>[/tcp|/udp]} & Documenta uma porta de escuta. Apenas informativo. Repetível. \\
+\dir{ARG <NAME>[=<default>]} & Variável de tempo de build, usável como \texttt{\$\{NAME\}} em outros lugares. Sobrescreva com \flag{--build-arg NAME=value}. \\
+\dir{COPY [--chmod=<mode>] <src> <dest>} & Arquivo/diretório/glob local para dentro da imagem. Deve corresponder ao \dir{ARCH}. \\
+\dir{ADD [--chmod=<mode>] <src> <dest>} & Como \dir{COPY}, mas \texttt{src} pode ser uma URL, e arquivos compactados são auto-extraídos. \\
+\dir{ENTRYPOINT <cmd...>} & O processo principal, reiniciado automaticamente. Forma shell ou exec. \\
+\dir{CMD <args...>} & Argumentos padrão anexados após \dir{ENTRYPOINT}. \\
+\dir{SERVICE <name> <cmd...>} & Um processo adicional, supervisionado e reiniciado automaticamente. Repetível. \\
+\bottomrule
+\end{longtable}
+
+\subsection{Armazenamento}
+
+\begin{longtable}{p{4.2cm}p{9.3cm}}
+\toprule
+\textbf{Diretiva} & \textbf{Significado} \\
+\midrule
+\endhead
+\dir{VOLUME <device> <mount> [fstype] [required]} & Monta um disco pré-existente e pré-formatado no boot. Nunca o formata. \texttt{fstype} é \texttt{vfat} (padrão) ou \texttt{ext4}. Sem \texttt{required}: uma montagem que falha é silenciosamente ignorada. Com \texttt{required}: uma montagem que falha interrompe o boot com uma mensagem FATAL clara. Repetível. \\
+\dir{TMPSIZE <size>} & Sobrescreve o \texttt{size=} do tmpfs para os diretórios executáveis em RAM (\texttt{bin}, \texttt{sbin}, \texttt{usr/bin}, \texttt{usr/sbin}); padrão \texttt{32m}. \\
+\bottomrule
+\end{longtable}
+
+\subsection{Configuração ao Vivo --- A Diretiva AGENT}
+
+A família \dir{AGENT} permite que uma VM em execução capte mudanças de
+configuração sem um rebuild ou reboot, escrevendo o valor buscado em
+\texttt{/var/run/cnimbus-kv.json} em um intervalo que seu
+\dir{ENTRYPOINT} lê.
+
+\begin{longtable}{p{5.4cm}p{8.1cm}}
+\toprule
+\textbf{Forma} & \textbf{Canal} \\
+\midrule
+\endhead
+\dir{AGENT <url> [interval]} & HTTP(S) puro, qualquer servidor. Funciona em qualquer hypervisor com rede no guest. Intervalo padrão \texttt{5}s. \\
+\dir{AGENT header <name>: <value>} & Cabeçalho extra para a forma HTTP acima (endpoints de metadados em nuvem frequentemente exigem um). Repetível. \\
+\dir{AGENT vboxguest <property> [interval]} & O canal real de Guest Properties do VirtualBox. Não precisa de rede no guest. Exclusivo do VirtualBox. \\
+\dir{AGENT virtio-serial <device> [interval]} & Um dispositivo de caractere \texttt{virtio-serial} do QEMU/Proxmox. Não precisa de \texttt{qemu-guest-agent}. \\
+\dir{AGENT aws-imds <path> [interval]} & Serviço de metadados IMDSv2 do AWS EC2 (trata o handshake de PUT-token-depois-GET). \\
+\dir{AGENT ibm-imds <path> [interval]} & Serviço de metadados do IBM Cloud VPC. \\
+\dir{AGENT vmware <key> [interval]} & \texttt{guestinfo.<key>} do VMware via o protocolo de I/O backdoor de baixa banda. Não precisa das VMware Tools. Só \texttt{linux/amd64}. \\
+\bottomrule
+\end{longtable}
+
+\subsection{Firewall e Ciclo de Vida}
+
+\begin{longtable}{p{4.2cm}p{9.3cm}}
+\toprule
+\textbf{Diretiva} & \textbf{Significado} \\
+\midrule
+\endhead
+\dir{FIREWALL <rule>} & Uma linha de regra \texttt{iptables} (IPv4), aplicada no boot via um \texttt{iptables} estático construído pelo \texttt{prepare}. Repetível. \\
+\dir{FIREWALL6 <rule>} & O equivalente IPv6 de \dir{FIREWALL}: mesma sintaxe de regra, aplicada via o mesmo binário estático (que também despacha como \texttt{ip6tables}), num conjunto de regras totalmente independente. Declarar um não afeta o outro. Repetível. Injeta automaticamente as mensagens ICMPv6 mínimas da RFC~4890 (Neighbor Discovery e erros de MTU) antes de qualquer regra sua --- sem isso, uma política \texttt{-P INPUT DROP} bloquearia a própria resolução de endereço IPv6 (o equivalente do ARP), algo que \dir{FIREWALL} nunca precisa porque o ARP não passa pelo \texttt{iptables}. \\
+\dir{FIREWALL\_ON\_ERROR <open|closed>} & Comportamento de fallback se uma regra \dir{FIREWALL}/\dir{FIREWALL6} falhar ao ser aplicada: \texttt{open} (padrão, aceita tudo) ou \texttt{closed} (bloqueia tudo exceto loopback/estabelecidas). Vale para os dois conjuntos de regras. \\
+\dir{HEALTHCHECK [--interval=<n>] [--retries=<n>] <cmd...>} & Executa \texttt{<cmd...>} periodicamente contra o \dir{ENTRYPOINT}; mata/reinicia após falhas consecutivas. Padrões: intervalo \texttt{30}s, tentativas \texttt{3}. \\
+\dir{RESTART <target> <always|on-failure|no>} & Política de reinício para \texttt{entrypoint} ou um \dir{SERVICE} nomeado. \\
+\dir{STOPGRACE <seconds>} & Quanto tempo um shutdown espera o \dir{ENTRYPOINT} sair por conta própria após \texttt{SIGTERM} antes do \texttt{SIGKILL}. Padrão \texttt{10}. \\
+\bottomrule
+\end{longtable}
+
+\subsection{Assinatura}
+
+\begin{longtable}{p{4.2cm}p{9.3cm}}
+\toprule
+\textbf{Diretiva} & \textbf{Significado} \\
+\midrule
+\endhead
+\dir{PIECESKEY <hex-pubkey>} & Fixa a chave pública Ed25519 com a qual o \texttt{pieces.sha256} deve estar assinado. Veja o Capítulo~\ref{ch:security}. \\
+\bottomrule
+\end{longtable}
+
+\section{Regras de Precedência Que Vale Memorizar}
+
+\begin{enumerate}
+  \item Uma flag de linha de comando sempre sobrescreve a diretiva de
+    mesmo nome no Nimbusfile.
+  \item \dir{IP} vence \dir{DHCP} quando ambos estão presentes.
+  \item Um \dir{ENV} posterior com a mesma chave sobrescreve um
+    anterior.
+  \item \texttt{\$\$} é o escape para um \texttt{\$} literal em
+    qualquer argumento de diretiva (convenção do próprio Docker) ---
+    necessário para que \dir{ENTRYPOINT}/\dir{CMD} passem um
+    \texttt{\$VAR} literal adiante, para o shell expandir em
+    \textit{tempo de execução}, a partir de um valor \dir{ENV}, em vez
+    de em tempo de \textit{parse} do Nimbusfile.
+\end{enumerate}
+
+% =======================================================================
+\chapter{Referência de Linha de Comando}
+\label{ch:cli}
+% =======================================================================
+
+\section{cnimbus prepare}
+
+Compila as pieces (kernel, BusyBox, iptables estático) dentro do
+Docker.
+
+\begin{longtable}{p{5.3cm}p{8.2cm}}
+\toprule
+\textbf{Flag} & \textbf{Significado} \\
+\midrule
+\endhead
+\flag{-f <path>} & Nimbusfile de onde ler os padrões de \dir{KERNEL}/\dir{BUSYBOX}/\dir{ARCH} (padrão \texttt{Nimbusfile}). \\
+\flag{--kernel <version>} & Sobrescreve o \dir{KERNEL} do Nimbusfile. \\
+\flag{--busybox <version>} & Sobrescreve o \dir{BUSYBOX} do Nimbusfile. \\
+\flag{--arch <amd64|arm64>} & Sobrescreve o \dir{ARCH} do Nimbusfile. \\
+\flag{--out <dir>} & Diretório onde escrever as pieces (padrão \texttt{./pieces}, namespaced por arquitetura). \\
+\flag{--vga[=false]} & Sobrescreve o \dir{VGA} do Nimbusfile. \\
+\flag{--hardboot <none|eth|wifi|eth+wifi>} & Sobrescreve o \dir{HARDBOOT} do Nimbusfile. Veja o Capítulo~\ref{ch:hardboot}. \\
+\flag{--insecure-skip-kernel-verify} & Pula a verificação PGP do tarball do kernel baixado. Não recomendado. \\
+\flag{--pieces-sign-key <path>} & Assina o \texttt{pieces.sha256} recém-escrito com esta chave Ed25519. \\
+\flag{--jobs <n>} & Paralelismo \texttt{make -j} para as builds de kernel/BusyBox/iptables (0 = auto-detecta a partir da memória disponível). \\
+\bottomrule
+\end{longtable}
+
+\section{cnimbus build-disk}
+
+Monta uma imagem inicializável a partir de pieces já construídas. Nunca
+toca no Docker.
+
+\begin{longtable}{p{5.3cm}p{8.2cm}}
+\toprule
+\textbf{Flag} & \textbf{Significado} \\
+\midrule
+\endhead
+\flag{-f <path>} & Nimbusfile a ler (padrão \texttt{Nimbusfile}). \\
+\flag{-o <path>} & Caminho da imagem de saída (padrão \texttt{<hostname>.iso}, \texttt{.img} ou \texttt{.vhd}). \\
+\flag{--pieces <src>} & Fonte de pieces pré-construídas: um diretório local ou um prefixo de URL \texttt{http(s)://}. \\
+\flag{--arch <amd64|arm64>} & Sobrescreve o \dir{ARCH} do Nimbusfile. \\
+\flag{--pieces-verify-key <hex>} & Uma chave pública Ed25519 contra a qual o \texttt{pieces.sha256.sig} deve verificar. \\
+\flag{--pieces-cache-dir <dir>} & Cache local para uma fonte \flag{--pieces} remota. \\
+\flag{--no-pieces-cache} & Desativa completamente o cache de pieces. \\
+\flag{--pieces-insecure-http} & Permite uma fonte \flag{--pieces} \texttt{http://} pura (recusada por padrão). \\
+\flag{--pieces-allow-unverified} & Permite uma fonte de pieces sem assinatura, sem manifesto de integridade nenhum. \\
+\flag{--no-lockfile} & Não escreve o \texttt{<output>.lock}. \\
+\flag{--tmpdir <dir>} & Diretório para os arquivos temporários de trabalho da build. \\
+\flag{--secureboot} & Assina o kernel EFI-stub enviado com uma implementação Authenticode em Go puro (sem Docker). Veja o Capítulo~\ref{ch:security}. \\
+\flag{--uki} & Monta e assina uma Unified Kernel Image (implica \flag{--secureboot}). \\
+\flag{--secureboot-key <path>} & Traz sua própria chave privada RSA para assinatura (deve vir junto com \flag{--secureboot-cert}). \\
+\flag{--secureboot-cert <path>} & Traz seu próprio certificado X.509 para assinatura. \\
+\flag{--secureboot-dir <dir>} & Onde auto-gerar/reutilizar um par de chaves de assinatura quando nenhuma das opções acima é dada (padrão \texttt{./secureboot}). \\
+\bottomrule
+\end{longtable}
+
+\section{cnimbus run}
+
+Inicializa uma imagem já construída sob um hypervisor real.
+
+\begin{longtable}{p{5.3cm}p{8.2cm}}
+\toprule
+\textbf{Flag} & \textbf{Significado} \\
+\midrule
+\endhead
+\flag{--backend <qemu|vbox|vmware|hyperv>} & Hypervisor a usar (padrão \texttt{qemu}). \\
+\flag{--arch <amd64|arm64>} & Arquitetura da imagem (padrão \texttt{amd64}). \\
+\flag{--uefi} & Inicializa via UEFI/OVMF em vez de BIOS (só amd64 --- arm64 é sempre UEFI). \\
+\flag{--ovmf-code <path>} / \flag{--ovmf-vars <path>} & Caminhos explícitos do firmware OVMF (auto-detectados caso contrário). \\
+\flag{--mem <MB>} & RAM do guest (padrão \texttt{512}). \\
+\flag{--smp <n>} & Número de vCPUs do guest (só \flag{--backend qemu}). \\
+\flag{--accel <auto|kvm|hvf|whpx|tcg>} & Backend de aceleração do QEMU (só \flag{--backend qemu}). \\
+\flag{--hostfwd <host:guest>} & Redirecionamento de porta TCP (padrão \texttt{8080:8080}). \\
+\flag{--hostfwd-bind <addr>} & Endereço do host ao qual o redirecionamento se vincula (padrão \texttt{127.0.0.1}). \\
+\flag{--backend vbox|vmware|hyperv} & Veja o Capítulo~\ref{ch:backends} para notas específicas de cada backend. \\
+\flag{--vm-name <name>} & Nome da VM a criar (removida após o desligamento a menos que \flag{--vm-keep}). \\
+\flag{--vm-keep} & Não remove a VM após ela desligar. \\
+\bottomrule
+\end{longtable}
+
+\section{cnimbus keygen}
+
+Gera as chaves de assinatura usadas em outros pontos deste manual.
+
+\begin{shell}
+cnimbus keygen --out my-signing-key.hex          # assinatura de pieces (Ed25519)
+cnimbus keygen --secureboot --out-dir ./secureboot # Secure Boot (RSA + X.509)
+\end{shell}
+
+\section{Outros Subcomandos}
+
+\begin{itemize}
+  \item \cmdname{cnimbus init} --- escreve um Nimbusfile inicial
+    totalmente comentado no diretório atual.
+  \item \cmdname{cnimbus validate} --- verifica um Nimbusfile (e a
+    arquitetura de qualquer binário copiado via \dir{COPY}) sem
+    construir nada.
+  \item \cmdname{cnimbus kv-serve} --- um pequeno servidor HTTP local
+    para testar o mecanismo \dir{AGENT <url>}, com TLS opcional e
+    autenticação por bearer token.
+  \item \cmdname{cnimbus help} --- lista todo subcomando e os códigos
+    de saída documentados do projeto.
+\end{itemize}
+
+% =======================================================================
+\chapter{Backends de Hypervisor}
+\label{ch:backends}
+% =======================================================================
+
+\section{Visão Geral}
+
+\texttt{cnimbus run} unifica quatro backends sob uma única flag,
+\flag{--backend}. A Tabela~\ref{tab:backends} resume o que cada um
+precisa e suporta.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lllll}
+\toprule
+\textbf{Backend} & \textbf{Precisa} & \textbf{UEFI} & \textbf{FORMAT raw} & \textbf{Redir. porta} \\
+\midrule
+\texttt{qemu} & QEMU no PATH & Sim (OVMF) & Sim & \texttt{-netdev user} \\
+\texttt{vbox} & VBoxManage & Sim & Sim & Redir. NAT \\
+\texttt{vmware} & vmrun/VMware & Sim & Sim (envolto em VMDK) & Não automatizado \\
+\texttt{hyperv} & Windows, admin & Sim (Ger.\,2) & Só sim & Switch NAT \\
+\bottomrule
+\end{tabular}
+\caption{Resumo de capacidades dos backends.}
+\label{tab:backends}
+\end{table}
+
+\section{QEMU}
+
+O padrão. Nenhuma elevação necessária em qualquer plataforma.
+
+\begin{shell}
+cnimbus run my-image.iso
+cnimbus run --uefi --accel kvm my-image.iso   # Linux com KVM
+\end{shell}
+
+\section{VirtualBox}
+
+\begin{shell}
+cnimbus run --backend vbox my-image.iso
+cnimbus run --backend vbox --uefi my-image.iso
+\end{shell}
+
+Nenhuma elevação é necessária em nenhuma plataforma testada por este
+projeto --- o \texttt{VBoxManage} executa diretamente como o usuário
+que o invoca.
+
+\section{VMware}
+
+\begin{shell}
+cnimbus run --backend vmware my-image.iso
+\end{shell}
+
+O VMware Player (a versão gratuita) não pode usar vTPM --- o Secure
+Boot funciona, mas a emulação de TPM exige o Workstation Pro ou o
+vSphere (criptografia da VM é um pré-requisito obrigatório que o
+Player não expõe). O redirecionamento de porta não é automatizado
+para este backend; use a própria configuração de rede do guest (um
+adaptador em bridge/NAT que você configura diretamente no VMware) para
+alcançar um serviço rodando dentro dele.
+
+\section{Hyper-V}
+
+\begin{shell}
+cnimbus run --backend hyperv --uefi my-image.img
+\end{shell}
+
+\textbf{Exige \flag{FORMAT raw}} --- o Hyper-V não tem um caminho de
+drive óptico virtual na implementação deste projeto, apenas um disco
+rígido virtual (um VHD Fixed, envolvendo a imagem raw de forma
+transparente). Exige uma sessão elevada (Administrador): execute a
+partir de uma janela do PowerShell aberta via ``Executar como
+administrador'', ou aprove o prompt do UAC se o próprio
+\texttt{cnimbus} disparar um. Um guest alcançável via \flag{--hostfwd}
+deve declarar um \dir{IP} estático na faixa \texttt{192.168.200.0/24}
+--- o switch NAT interno que este backend cria não tem servidor DHCP
+próprio.
+
+% =======================================================================
+\chapter{Segurança: Assinatura e Secure Boot}
+\label{ch:security}
+% =======================================================================
+
+\section{Assinatura de Pieces (Integridade e Autenticidade)}
+
+O \texttt{pieces.sha256} (escrito pelo \texttt{prepare}) é um manifesto
+de hashes: o \texttt{build-disk} verifica cada arquivo buscado contra
+ele, então um download corrompido ou uma substituição em trânsito é
+detectada. Isso é \textit{integridade} --- não prova \textit{quem}
+publicou o manifesto.
+
+\begin{shell}
+cnimbus keygen --out my-signing-key.hex
+cnimbus prepare --pieces-sign-key my-signing-key.hex
+cnimbus build-disk --pieces-verify-key <a-chave-publica-impressa>
+\end{shell}
+
+Com \flag{--pieces-verify-key} (ou uma linha \dir{PIECESKEY} no
+Nimbusfile) definida, o \texttt{build-disk} se recusa a construir a
+menos que a fonte de pieces tenha publicado um \texttt{pieces.sha256.sig}
+que verifique contra exatamente essa chave.
+
+\section{Assinatura de Kernel EFI-Stub e UKI}
+
+Assinar as pieces autentica as \textit{entradas da build}. Isso não
+diz nada sobre o que o \textit{firmware} confia em tempo de boot.
+\flag{--secureboot} e \flag{--uki} fecham essa lacuna: elas assinam a
+imagem EFI de boot real com uma implementação Authenticode em Go puro
+(sem Docker, sem ferramenta externa nenhuma --- veja
+\texttt{internal/secureboot}), então um hypervisor com Secure Boot
+habilitado vai se recusar a executá-la a menos que seu certificado
+esteja registrado no seu banco de dados UEFI.
+
+\begin{shell}
+cnimbus build-disk --secureboot          # assina o kernel diretamente
+cnimbus build-disk --uki                 # monta + assina uma UKI completa
+\end{shell}
+
+Sem flags explícitas de chave/certificado, uma identidade de assinatura
+(RSA-3072 + X.509 autoassinado) é gerada uma vez sob
+\flag{--secureboot-dir} (padrão \texttt{./secureboot}) e reutilizada em
+toda build posterior --- nunca regenerada silenciosamente. Veja o
+passo a passo de \texttt{examples/secureboot-uki/} no
+Capítulo~\ref{ch:examples} para os comandos exatos, testados de ponta a
+ponta, para registrar esse certificado na variável \texttt{db} UEFI de
+uma VM VirtualBox real e inicializar com o Secure Boot habilitado.
+
+\textbf{Uma limitação de plataforma confirmada:} no momento em que este
+manual foi escrito, o módulo PowerShell do Hyper-V não expõe nenhum
+cmdlet para registrar um certificado fornecido pelo usuário ---
+\texttt{Set-VMFirmware -SecureBootTemplate} só aceita os templates
+fixos da própria Microsoft. O VirtualBox é o backend a usar para uma
+cadeia real de Secure Boot autoassinada hoje.
+
+% =======================================================================
+\chapter{Boot em Hardware Físico}
+\label{ch:hardboot}
+% =======================================================================
+
+\section{A Diretiva HARDBOOT}
+
+Por padrão, as imagens do cnimbus são construídas apenas para hardware
+virtual: \texttt{virtio-net}, \texttt{virtio-blk}, e dispositivos
+paravirtualizados similares que nenhuma máquina física realmente tem.
+\dir{HARDBOOT} é uma diretiva opt-in, inerte por padrão, que troca por
+drivers de hardware real em vez disso.
+
+\begin{nimbusfile}
+HARDBOOT eth      # ou: wifi, ou eth+wifi para ambos
+\end{nimbusfile}
+
+Isso também precisa ser passado para o \texttt{prepare} (muda qual
+kernel é compilado):
+
+\begin{shell}
+cnimbus prepare --hardboot eth
+\end{shell}
+
+Um Nimbusfile cujo \dir{HARDBOOT} não corresponde às pieces contra as
+quais está sendo construído é rejeitado em tempo de
+\texttt{build-disk}, da mesma forma que um \dir{ARCH} incompatível já
+é.
+
+Cada valor isolado é exclusivo à sua própria família de drivers:
+\dir{HARDBOOT eth} nunca constrói a pilha WiFi, e \dir{HARDBOOT wifi}
+nunca constrói drivers de chipset Ethernet. \dir{HARDBOOT eth+wifi} é
+o único valor que constrói ambos, para uma máquina física que tem
+tanto uma NIC cabeada quanto um rádio WiFi.
+
+\section{HARDBOOT eth}
+
+Adiciona drivers reais de chipset Ethernet das famílias Intel
+e1000/e1000e e Realtek R8169. \flag{FORMAT raw} é exigido para um boot
+real via pendrive USB ou bare-metal (uma ISO simples não tem código de
+boot MBR, então não pode ser escrita em um pendrive USB e inicializada
+da forma que uma máquina real espera).
+
+Como uma verificação prévia barata antes de gastar uma tentativa de
+boot físico: a NIC emulada \textit{padrão} do QEMU e do VirtualBox é
+um chip real da família e1000, então exatamente a mesma pilha de
+drivers pode ser testada virtualmente primeiro
+(\texttt{cnimbus run -{}-backend qemu -{}-format raw} ou
+\texttt{-{}-backend vbox}). Isso não exercita o caminho real de
+enumeração USB/MBR, mas pega de graça uma combinação obviamente
+quebrada de driver/kconfig.
+
+\section{HARDBOOT wifi}
+
+Adiciona um conjunto curado de drivers de chipset WiFi (liderado pelo
+Atheros AR9271, \texttt{ath9k\_htc}), os blobs de firmware
+correspondentes (fixados por hash e embutidos no initramfs de boot), e
+um \texttt{wpa\_supplicant} estaticamente ligado (o BusyBox não traz
+nenhum). Use as diretivas \dir{WIFI} / \dir{WIFIPSK} / \dir{WIFICOUNTRY}
+do Capítulo~\ref{ch:nimbusfile} para configurar a rede.
+
+\textbf{Limitação honesta:} não há hardware de rádio WiFi, nem emulação
+de chipset WiFi, disponível no QEMU ou VirtualBox --- diferente da
+Ethernet cabeada, a prova de associação em hardware real deste perfil
+genuinamente exige um adaptador WiFi físico. Tudo até esse ponto
+(compilação do kernel, empacotamento de firmware, geração de
+configuração, tratamento de credenciais) é verificado hoje por
+inspeção direta de uma imagem real construída.
+
+\section{HARDBOOT eth+wifi}
+
+Constrói ambas as famílias de drivers no mesmo kernel e sobe ambas as
+interfaces no boot (\texttt{eth0} via \dir{DHCP}/\dir{IP} como usual,
+\texttt{wlan0} via \dir{WIFI}/\dir{WIFIPSK}/\dir{WIFICOUNTRY}) --- para
+uma máquina física que genuinamente tem tanto uma porta cabeada quanto
+um rádio WiFi. Exige as mesmas diretivas
+\dir{WIFI}/\dir{WIFIPSK}/\dir{WIFICOUNTRY} que \dir{HARDBOOT wifi}
+isoladamente exige; as mesmas duas lacunas de hardware real acima
+(boot USB/BIOS, associação WiFi) se aplicam.
+
+\begin{nimbusfile}
+HARDBOOT eth+wifi
+WIFI MyNetwork
+WIFIPSK correcthorsebattery
+WIFICOUNTRY BR
+DHCP true
+\end{nimbusfile}
+
+% =======================================================================
+\chapter{Exemplos Práticos}
+\label{ch:examples}
+% =======================================================================
+
+Cada exemplo abaixo vive em \texttt{examples/} no repositório e é
+totalmente autocontido: seu próprio Nimbusfile, seu próprio
+\texttt{README.md} com comandos exatos de build/boot, e (quando um
+binário complementar é necessário) seu próprio código-fonte pequeno em
+Go. Todos eles assumem que o \texttt{cnimbus} está compilado e que o
+\texttt{cnimbus prepare} já produziu \texttt{./pieces} para o \dir{ARCH}
+de destino.
+
+\section{env-config --- Passando Configuração em Tempo de Execução}
+
+Mostra \dir{ENV}: valores de configuração embutidos em tempo de build,
+lidos pelo entrypoint como variáveis de ambiente comuns. O exemplo mais
+simples possível da filosofia ``declare, não script''.
+
+\section{volume-persistent-disk --- Estado Que Sobrevive a um Reboot}
+
+Mostra \dir{VOLUME}: montando um disco pré-formatado e pré-anexado, de
+forma que um arquivo de log (ou qualquer outro estado) escrito durante
+um boot ainda esteja lá após um ciclo completo de energia. Todo o resto
+em uma imagem cnimbus é apenas-RAM por design --- esta é a única
+válvula de escape deliberada.
+
+\begin{nimbusfile}
+VOLUME /dev/vda /mnt/data
+ENTRYPOINT ["/bin/sh", "-c",
+  "echo \"booted at $(date)\" >> /mnt/data/log.txt; sleep 3600"]
+\end{nimbusfile}
+
+\section{agent-http-kv --- Configuração ao Vivo Via HTTP Puro}
+
+Mostra \dir{AGENT <url>}: uma VM em execução consultando um endpoint
+HTTP do lado do host a cada poucos segundos e escrevendo a resposta em
+\texttt{/var/run/cnimbus-kv.json}, permitindo que sua própria aplicação
+capte mudanças de configuração sem um rebuild ou reboot. Funciona em
+qualquer hypervisor com rede no guest.
+
+\section{agent-vboxguest-kv --- Configuração ao Vivo Sem Rede no Guest}
+
+A mesma ideia acima, mas pelo canal real de Guest Properties do
+VirtualBox em vez de HTTP --- útil quando o guest deliberadamente não
+tem acesso à rede nenhum, e a configuração ainda precisa chegar até
+ele.
+
+\section{multi-service --- Mais de Um Processo}
+
+Mostra \dir{SERVICE}: executando um processo adicional, supervisionado
+e reiniciado automaticamente, ao lado do \dir{ENTRYPOINT}, cada um
+gerenciado independentemente.
+
+\section{static-ip-firewall --- Rede Mais um Firewall}
+
+Mostra \dir{IP} (um endereço estático, demonstrando que ele vence o
+\dir{DHCP} quando ambos estão definidos) e \dir{FIREWALL}: aplicando
+regras reais de \texttt{iptables} no boot.
+
+\begin{nimbusfile}
+IP 192.168.56.10 255.255.255.0 192.168.56.1
+FIREWALL -P INPUT DROP
+FIREWALL -A INPUT -p tcp --dport 8080 -j ACCEPT
+\end{nimbusfile}
+
+Tráfego de loopback e conexões estabelecidas/relacionadas são sempre
+aceitas automaticamente antes de qualquer regra \dir{FIREWALL} rodar
+--- você nunca precisa declarar nenhuma das duas você mesmo.
+
+\section{format-raw-disk --- Imagens de Disco Estilo Nuvem}
+
+Mostra \flag{FORMAT raw}: produzindo um disco raw particionado em GPT
+em vez de uma ISO, o formato que plataformas de nuvem (Proxmox, e
+provisionamento baseado em imagem de disco similares) esperam, e o
+mesmo formato que \dir{HARDBOOT} exige para um boot físico.
+
+\section{healthcheck-restart --- Detectando um Processo Travado}
+
+Mostra \dir{HEALTHCHECK} e \dir{RESTART}: um servidor deliberadamente
+instável que para de responder (sem travar) após 20 segundos, pego e
+forçado a reiniciar por três verificações de saúde consecutivas
+falhas.
+
+\begin{nimbusfile}
+HEALTHCHECK --interval=5 --retries=3 wget -q -O /dev/null http://127.0.0.1:8080/health
+RESTART entrypoint always
+\end{nimbusfile}
+
+O console mostra a sequência exata de escalonamento: três verificações
+falhas, depois \texttt{SIGTERM}, depois (se ainda estiver vivo)
+\texttt{SIGKILL} (código de saída 137 = 128+9, confirmando que foi
+mesmo um kill), depois um reinício limpo.
+
+\section{stopgrace-graceful-shutdown --- Dando Tempo Para Trabalho em Andamento Terminar}
+
+Mostra \dir{STOPGRACE}: um servidor que termina uma ``transação'' em
+andamento de 8 segundos após receber \texttt{SIGTERM}, em vez de
+morrer imediatamente --- o cenário para o qual o orçamento padrão de
+cerca de 1 segundo de shutdown do init do BusyBox é muito curto.
+
+\begin{nimbusfile}
+STOPGRACE 15
+\end{nimbusfile}
+
+\section{hardboot-eth --- Ethernet Real, Boot USB Real}
+
+Mostra \dir{HARDBOOT eth} de ponta a ponta: o passo
+\flag{prepare --hardboot eth}, uma verificação prévia virtual com
+e1000/e1000e sob o QEMU e o VirtualBox, e os passos exatos de
+\texttt{dd}/Rufus para escrever a imagem raw resultante em um pendrive
+USB para um boot físico real.
+
+\section{hello-http-baremetal-proxmox --- Uma Imagem, Dois Destinos, IPv4 e IPv6}
+
+Um único Nimbusfile que sobe sem modificação em hardware físico real
+(via pendrive UEFI) e dentro do Proxmox (como o CD-ROM virtual de uma
+VM), alcançável por qualquer lugar da internet tanto em IPv4 quanto em
+IPv6:
+
+\begin{nimbusfile}
+KERNEL latest-stable
+BUSYBOX latest
+ARCH amd64
+HOSTNAME cnimbus-hello-http-demo
+
+WIFI cnimbus-placeholder-ssid
+WIFIPSK cnimbus-placeholder-psk
+WIFICOUNTRY US
+HARDBOOT eth+wifi
+
+VGA true
+DHCP true
+
+COPY ./helloserver /usr/bin/helloserver
+ENTRYPOINT /usr/bin/helloserver
+CMD :8080
+
+FIREWALL -P INPUT DROP
+FIREWALL -A INPUT -p tcp -s 0.0.0.0/0 --dport 8080 -j ACCEPT
+FIREWALL6 -P INPUT DROP
+FIREWALL6 -A INPUT -p tcp -s ::/0 --dport 8080 -j ACCEPT
+
+FORMAT iso
+\end{nimbusfile}
+
+\dir{HARDBOOT eth+wifi} é aditivo sobre os drivers de VM que
+\texttt{vm-amd64.fragment} já traz (e1000/virtio-net) --- é exatamente
+isso que permite uma única imagem inicializar tanto em hardware real
+quanto dentro do Proxmox sem mudança nenhuma: a NIC virtual do Proxmox
+já é coberta pelos drivers de VM, independentemente do \dir{HARDBOOT};
+a NIC (ou placa WiFi) de uma máquina real é coberta pelos drivers que o
+\dir{HARDBOOT} adiciona por cima. \dir{WIFI}/\dir{WIFIPSK}/\dir{WIFICOUNTRY}
+são obrigatórios sempre que \dir{HARDBOOT} inclui \texttt{wifi} --- os
+valores acima são apenas placeholders (este exemplo só exercita
+Ethernet cabeada nos dois destinos); substitua-os por credenciais reais
+se o hardware físico de destino precisar associar via WiFi.
+
+\dir{VGA true} ativa o banner de IP do console: assim que a rede sobe,
+a tela (o monitor físico, ou o console noVNC/SPICE do Proxmox) mostra
+algo como:
+
+\begin{shell}
+cnimbus: IPv4 address: 10.0.2.15 (eth0)
+cnimbus: IPv6 address: fd00::... (eth0)
+\end{shell}
+
+\dir{FIREWALL}/\dir{FIREWALL6} (seção ``Referência Completa de
+Diretivas'') são dois conjuntos de regras independentes --- declarar
+um não afeta o outro. Ambos ficam abertos a \texttt{0.0.0.0/0}/
+\texttt{::/0} na porta 8080 aqui, exatamente como pedido; loopback e
+conexões já estabelecidas são sempre aceitas automaticamente antes de
+qualquer regra rodar (mesmo comportamento do exemplo
+\texttt{static-ip-firewall} anterior).
+
+Verificado de ponta a ponta em hardware físico real e num Proxmox
+real: o kernel sobe, o DHCP obtém um lease em \texttt{eth0}, o banner
+de IP imprime tanto o endereço IPv4 quanto o IPv6, um \texttt{curl} de
+outra máquina na mesma rede (inclusive \texttt{curl -6}) retorna a
+resposta HTTP real, os dois conjuntos de \dir{FIREWALL}/\dir{FIREWALL6}
+se aplicam sem nenhuma falha de regra, e os dois sinais de controle do
+Proxmox (``Signal Shutdown'' via ACPI e Ctrl+Alt+Del pelo console)
+desligam/reiniciam a VM de forma correta.
+
+\textbf{Boot em hardware real (apenas UEFI --- esta ISO não é
+isohybrid, veja ``Imagens ISO Não São Isohybrid''):}
+
+\begin{shell}
+# Linux/macOS
+sudo dd if=cnimbus-hello-http-demo.iso of=/dev/sdX bs=4M \
+  status=progress conv=fsync
+# Windows: Rufus, modo "DD Image", apontado para o .iso
+\end{shell}
+
+Um pendrive gravado desta forma inicializa em qualquer hardware UEFI
+com um disco USB anexado como um disco SATA/SCSI comum ---
+\texttt{HARDBOOT eth}/\texttt{eth+wifi} traz o driver de
+armazenamento USB necessário para o kernel redescobrir o próprio
+pendrive depois que o firmware UEFI entrega o controle a ele. Uma
+ferramenta de pendrive multiboot (Ventoy e equivalentes, que
+inicializam encadeando o GRUB contra um arquivo \texttt{.iso} numa
+partição FAT/exFAT em vez de gravar a ISO diretamente no disco) também
+funciona sem configuração adicional: a imagem varre toda partição
+FAT/exFAT do pendrive procurando qualquer arquivo \texttt{*.iso} e o
+monta via loop.
+
+Se o pendrive carrega mais de uma imagem cnimbus, o console mostra
+qual delas realmente subiu --- lido de um \texttt{CNIMBUS.CFG} em
+texto puro na raiz da própria ISO:
+
+\begin{shell}
+cnimbus: identified boot image:
+HOSTNAME=cnimbus-hello-http-demo
+ARCH=amd64
+FORMAT=iso
+CNIMBUS_VERSION=...
+\end{shell}
+
+\textbf{Boot no Proxmox:} envie a ISO para um storage que aceite
+imagens ISO, crie uma VM sem disco algum (a imagem inteira roda em
+RAM), anexe a ISO como unidade de CD/DVD, defina a ordem de boot para
+inicializar a partir dela, e inicie a VM.
+
+\section{Mensagens de Boot em Todos os Consoles}
+
+Com \flag{--vga}/\dir{VGA true}, toda mensagem que a imagem imprime no
+boot (o banner de IP, o estado dos serviços) aparece tanto no monitor
+físico/console de vídeo quanto na porta serial, independente de qual
+deles a linha de comando do kernel declara como \texttt{/dev/console}
+principal. Isso importa porque o kernel sempre imprime seu próprio
+\texttt{dmesg} em todos os consoles declarados, mas o userspace por
+padrão escreveria apenas no último deles --- uma tela de monitor que
+mostra o \texttt{dmesg} do kernel e nada da própria imagem não
+significa que o boot travou, apenas que a saída está indo só para a
+serial.
+
+\section{Sinais de Controle do Proxmox: Signal Shutdown e Ctrl+Alt+Del}
+
+Esta imagem responde aos dois sinais de controle que o Proxmox oferece
+pela interface web:
+
+\begin{itemize}
+  \item \textbf{``Signal Shutdown''} envia um pedido de desligamento
+    ACPI; a imagem completa o desligamento gracioso (para os serviços,
+    desmonta o que precisa ser desmontado, e desliga a VM) igual a
+    rodar \texttt{poweroff} localmente teria.
+  \item \textbf{Ctrl+Alt+Del} pelo console reinicia a VM através do
+    mesmo ciclo gracioso de \dir{RESTART}/\dir{STOPGRACE}.
+\end{itemize}
+
+Os dois foram verificados contra um Proxmox real e contra um Hyper-V
+Generation~1 real.
+
+\section{secureboot-uki --- Assinando e Registrando um Certificado Real}
+
+Mostra \flag{--secureboot}/\flag{--uki} de ponta a ponta, incluindo os
+comandos exatos e testados de \texttt{VBoxManage modifynvram} para
+registrar um certificado real, autogerado, na variável \texttt{db}
+UEFI de uma VM VirtualBox (usando o \texttt{cert-to-efi-sig-list} do
+\texttt{efitools} para construir uma \texttt{EFI\_SIGNATURE\_LIST} real)
+e inicializar com o Secure Boot habilitado --- o primeiro boot real
+verificado por Secure Boot de um kernel assinado pelo cnimbus
+documentado neste projeto, sem usar nenhuma chave de demonstração de
+fornecedor.
+
+% =======================================================================
+\chapter{Solução de Problemas e Limitações Conhecidas}
+\label{ch:troubleshooting}
+% =======================================================================
+
+\section{Nenhum Shell em Lugar Nenhum}
+
+Não há shell instalado na imagem por design (além do que a própria
+invocação em forma shell do \dir{ENTRYPOINT} usa internamente). Você
+não pode fazer \texttt{ssh} ou login no console de uma VM cnimbus em
+execução para explorar interativamente --- se você precisa de
+visibilidade em tempo de execução, construa isso dentro do seu próprio
+\dir{ENTRYPOINT}, ou use \dir{AGENT} para configuração ao vivo e um log
+apoiado em VOLUME para saída persistida.
+
+\section{Imagens ISO Não São Isohybrid}
+
+Uma imagem \flag{FORMAT iso} simples tem entradas duplas de catálogo
+de boot El~Torito (BIOS e UEFI em amd64) mas nenhum código de boot MBR
+no byte~0. Ela vai inicializar corretamente na unidade óptica virtual
+de qualquer hypervisor suportado, mas escrevê-la diretamente em um
+pendrive USB e esperar que uma máquina real inicialize a partir dela
+não vai funcionar. Use \flag{FORMAT raw} para boot USB/bare-metal em
+vez disso --- esta é uma escolha de design explícita e documentada,
+não um descuido.
+
+\section{Aceleração WHPX no Windows}
+
+\flag{--accel auto} / \flag{--accel whpx} foi observado falhando
+completamente em pelo menos um host Windows real com
+\texttt{QEMU: WHPX: Unexpected VP exit code 4}. \flag{--accel tcg}
+(emulação por software) é um fallback confiável --- mais lento, mas
+inicializa.
+
+\section{VMware Player e vTPM}
+
+O VMware Player (a versão gratuita) não consegue ligar uma VM com
+\texttt{vtpm.present = "TRUE"} --- exige que a VM esteja criptografada
+primeiro, um recurso exclusivo do Workstation Pro/vSphere. Use o
+VirtualBox ou o Hyper-V se seu fluxo de trabalho precisa de um TPM
+virtual.
+
+\section{Arquivos Grandes em COPY/ADD e FORMAT iso}
+
+\flag{FORMAT iso} tem um limite rígido em cima do \dir{TMPSIZE}: a
+carga combinada de kernel + initramfs do estágio 1 é carregada via a
+entrada de boot ``sem emulação'' do El~Torito, cujo campo de tamanho
+tem 16 bits de unidades de 512 bytes (aproximadamente um orçamento
+prático de 24~MiB para o initramfs comprimido). Um \dir{COPY}/\dir{ADD}
+em um dos quatro diretórios executáveis em RAM grande o suficiente
+para exceder isso faz o \texttt{build-disk} falhar com uma mensagem
+nomeando o arquivo culpado. \flag{FORMAT raw} não tem esse limite ---
+troque para ele para qualquer coisa grande.
+
+\section{Códigos de Saída}
+
+O \texttt{cnimbus} diferencia modos de falha via código de saída em vez
+de sempre sair com 1:
+
+\begin{itemize}
+  \item \textbf{1} --- uma falha genérica/não classificada.
+  \item \textbf{4} --- uma falha de integridade ou verificação de
+    assinatura das pieces.
+  \item \textbf{5} --- uma busca upstream (kernel.org, BusyBox, etc.)
+    não pôde ser alcançada ou resolvida.
+\end{itemize}
+
+Execute \texttt{cnimbus help} para a lista autoritativa e atualizada.
+
+% =======================================================================
+\appendix
+\chapter{Referência Rápida de Diretivas}
+% =======================================================================
+
+\begin{center}
+\begin{longtable}{p{3.2cm}p{10.3cm}}
+\toprule
+\textbf{Categoria} & \textbf{Diretivas} \\
+\midrule
+\endhead
+Alvo de boot & \dir{KERNEL}, \dir{BUSYBOX}, \dir{ARCH}, \dir{VGA}, \dir{HARDBOOT}, \dir{FORMAT} \\
+Rede & \dir{HOSTNAME}, \dir{DHCP}, \dir{IP}, \dir{DNS}, \dir{NTP}, \dir{WIFI}, \dir{WIFIPSK}, \dir{WIFICOUNTRY} \\
+Processo/SA & \dir{USER}, \dir{WORKDIR}, \dir{ENV}, \dir{LABEL}, \dir{EXPOSE}, \dir{ARG}, \dir{COPY}, \dir{ADD}, \dir{ENTRYPOINT}, \dir{CMD}, \dir{SERVICE} \\
+Armazenamento & \dir{VOLUME}, \dir{TMPSIZE} \\
+Config. ao vivo & \dir{AGENT} (\texttt{http}, \texttt{vboxguest}, \texttt{virtio-serial}, \texttt{aws-imds}, \texttt{ibm-imds}, \texttt{vmware}) \\
+Firewall/ciclo de vida & \dir{FIREWALL}, \dir{FIREWALL\_ON\_ERROR}, \dir{HEALTHCHECK}, \dir{RESTART}, \dir{STOPGRACE} \\
+Assinatura & \dir{PIECESKEY} \\
+\bottomrule
+\end{longtable}
+\end{center}
+
+% =======================================================================
+\chapter{Métricas Medidas}
+% =======================================================================
+
+As métricas de requisitos não-funcionais a seguir foram medidas contra
+um \texttt{prepare} + \texttt{build-disk} real, e (onde indicado) um
+boot real em QEMU, na própria máquina de desenvolvimento deste projeto
+--- veja \texttt{REQUIREMENTS.md} para a tabela completa e a
+metodologia.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lll}
+\toprule
+\textbf{Métrica} & \textbf{Medido} & \textbf{Orçamento} \\
+\midrule
+Tamanho da imagem (exemplo mínimo) & 19,11 MiB & 32 MiB \\
+Tamanho do \texttt{vmlinuz} & 3,31 MiB & 12 MiB \\
+RSS de pico do \texttt{build-disk} & 36,03 MiB & 512 MiB \\
+Tempo de parede do \texttt{build-disk} (pieces em cache) & 0,53 s & 30 s \\
+Boot até o entrypoint (emulação por software) & 6,79 s & --- \\
+\bottomrule
+\end{tabular}
+\caption{Métricas medidas de NFR.}
+\end{table}
+
+\vfill
+\begin{center}
+\rule{0.5\textwidth}{0.4pt}\\[0.3cm]
+\textit{Este manual resume o próprio README.md, BUILD.md, Tasks.md, e
+REQUIREMENTS.md do projeto no momento em que foi escrito. Esses
+arquivos, e os logs reais de boot referenciados ao longo do histórico
+de commits deste projeto, permanecem a fonte de verdade autoritativa e
+continuamente atualizada.}
+\end{center}
+
+\end{document}

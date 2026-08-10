@@ -1,0 +1,170 @@
+# HARDBOOT wifi (F6.3/F6.4): the 802.11 stack, regulatory support, and a
+# curated set of chipset drivers. Applied only when the Nimbusfile
+# declares `HARDBOOT wifi` -- inert otherwise, same opt-in pattern as
+# vga.fragment/agent-vmware.fragment. "wifi" implies "eth" per the spec,
+# but this project's Ethernet driver fragment (baremetal-eth.fragment,
+# F6.1/F6.2's own workstream) does not exist yet in this tree at the time
+# this fragment was written -- USB core/host-controller support (needed
+# since ath9k_htc/rtl8xxxu/brcmfmac-usb/mwifiex-usb/mt7601u are all
+# USB-attached) used to live here as this fragment's own copy, moved out
+# to baremetal-usb.fragment (AD-049) once USB mass storage became a
+# second, independent reason every real-hardware HARDBOOT profile needs
+# it -- merged ahead of this one regardless of WiFi, see that fragment.
+#
+# Every symbol below is verified against the real upstream kernel source
+# at the exact tag `cnimbus prepare`'s "latest-stable" resolves to at the
+# time of writing (kernel.org v7.1.7, fetched read-only via
+# https://git.kernel.org/.../stable/linux.git/plain/<path>?h=v7.1.7 --
+# the same rigor F1 used for the arm64 CPU-mitigation symbols), including
+# every enclosing menuconfig/if block per the project's own repeated
+# tinyconfig lesson (spec.md Q6): a "default y" bool under an enclosing
+# gate is still forced to n by allnoconfig unless this fragment sets it
+# explicitly, and the *symbol being silently dropped* is exactly what
+# `verifyFragmentsApplied` (T66) exists to catch -- so a real
+# `cnimbus prepare --hardboot wifi` run either produces a kernel with
+# every symbol below actually =y, or fails loudly naming whichever one
+# didn't survive, never silently.
+
+# --- 802.11 core stack (net/wireless/Kconfig, net/mac80211/Kconfig) ---
+# menuconfig WLAN (drivers/net/wireless/Kconfig), default y, "select
+# WIRELESS" -- CONFIG_WIRELESS itself needs no separate line here, it's
+# select'd automatically once WLAN=y resolves (verified: select is not
+# subject to allnoconfig's own prompt-answering the way a plain
+# "default y" is).
+CONFIG_WLAN=y
+# tristate, "select FW_LOADER" -- CONFIG_FW_LOADER is therefore also
+# automatic once this resolves =y, same select reasoning as WIRELESS
+# above. depends on RFKILL || !RFKILL (always true).
+CONFIG_CFG80211=y
+# Regulatory database (D2-adjacent finding from this fragment's own
+# verification pass): as of the kernel version this project builds
+# against, the in-kernel regulatory database was removed entirely --
+# CFG80211_REQUIRE_SIGNED_REGDB (net/wireless/Kconfig) is "default y"
+# but, like every other default here, forced to n under allnoconfig, so
+# it needs to be explicit -- this is what makes cfg80211 load
+# regulatory.db + regulatory.db.p7s via request_firmware() (the exact
+# same D2 mechanism as ath9k_htc's own firmware, just for the regulatory
+# database instead of a chipset blob) rather than trusting an
+# unsigned/absent database. CFG80211_USE_KERNEL_REGDB_KEYS accepts the
+# kernel-shipped signer key (Seth Forshee's, the wireless-regdb
+# maintainer) so this project doesn't need its own signing
+# infrastructure just to ship a regulatory database.
+CONFIG_CFG80211_REQUIRE_SIGNED_REGDB=y
+CONFIG_CFG80211_USE_KERNEL_REGDB_KEYS=y
+# "You should enable this option unless you know for sure you have no
+# need for it... If unsure, say Y" (net/wireless/Kconfig's own help
+# text) -- the fallback path when a driver can't use the firmware-file
+# regdb directly.
+CONFIG_CFG80211_CRDA_SUPPORT=y
+# tristate, depends on CFG80211 -- the hardware-independent 802.11
+# framing/crypto/association-state-machine layer every driver below
+# sits on top of.
+CONFIG_MAC80211=y
+# Rate control algorithm: MAC80211_HAS_RC has no prompt (bool, no
+# default) and MAC80211_RC_MINSTREL/MAC80211_RC_DEFAULT_MINSTREL are
+# both "default y" under a `choice` -- same allnoconfig-forces-n
+# treatment as everything else in this fragment. Without an explicit
+# rate control algorithm, association can complete but TX rate
+# selection has nothing driving it.
+CONFIG_MAC80211_RC_MINSTREL=y
+CONFIG_MAC80211_RC_DEFAULT_MINSTREL=y
+
+# --- Atheros/Qualcomm: the F6.3 spike family ---------------------------
+# WLAN_VENDOR_ATH (drivers/net/wireless/ath/Kconfig): bool, default y,
+# gates an `if WLAN_VENDOR_ATH` block every ath9k_htc.
+CONFIG_WLAN_VENDOR_ATH=y
+# ATH9K_HTC (drivers/net/wireless/ath/ath9k/Kconfig): tristate, "depends
+# on USB && MAC80211", selects ATH9K_HW + ATH9K_COMMON (which itself
+# selects ATH_COMMON) -- so no separate line is needed for any of those
+# three; verified they cascade via `select`, not `depends on` requiring
+# its own fragment entry. This is the chosen F6.3 spike family: Atheros
+# AR9271 (USB), a single ~50 KB firmware file
+# (ath9k_htc/htc_9271-1.4.0.fw), a mainline in-kernel driver, and a
+# device that has *no* on-chip firmware fallback -- it either loads the
+# firmware from userspace-visible storage or it does not associate at
+# all, which makes it the cleanest possible test of D2 (see
+# internal/compileagent/wifi.go and design.md's D2).
+CONFIG_ATH9K_HTC=y
+
+# --- Realtek: broad USB coverage via one driver ------------------------
+CONFIG_WLAN_VENDOR_REALTEK=y
+# RTL8XXXU (drivers/net/wireless/realtek/rtl8xxxu/Kconfig): tristate,
+# "depends on MAC80211 && USB", "depends on LEDS_CLASS" -- one driver
+# covers RTL8723AU/8188CU/8188RU/8191CU/8192CU/8723BU/8192EU/8188FU/
+# 8188EU/8710BU/8192FU, i.e. most of the cheap Realtek USB dongle
+# population Ubuntu's own generic kernel also ships as modules
+# (verified against a real Ubuntu 24.04 "noble" kernel config: see
+# Tasks.md's F6.3/F6.4 entry for the annotations file checked).
+# RTL8XXXU_UNTESTED widens detection to newer/less-common chip IDs the
+# driver author hasn't personally verified -- still the same one driver,
+# no extra firmware, so included for breadth at no extra size cost.
+CONFIG_RTL8XXXU=y
+CONFIG_RTL8XXXU_UNTESTED=y
+# LEDS_CLASS's own enclosing gate: menuconfig NEW_LEDS (drivers/leds/
+# Kconfig), bool, no default at all -- forced n unless set here
+# regardless of allnoconfig, since there's no "default y" to even lose.
+CONFIG_NEW_LEDS=y
+CONFIG_LEDS_CLASS=y
+
+# --- Broadcom: FullMAC, USB bus (common in cheap dongles and some
+#     embedded boards; SDIO skipped deliberately -- it would pull in the
+#     entire MMC/SD host-controller subsystem, out of proportion to one
+#     driver family; PCIE skipped for now, same "widen later" reasoning
+#     as F6.6) ------------------------------------------------------------
+CONFIG_WLAN_VENDOR_BROADCOM=y
+# BRCMFMAC (drivers/net/wireless/broadcom/brcm80211/brcmfmac/Kconfig):
+# tristate, depends on CFG80211, selects BRCMUTIL.
+CONFIG_BRCMFMAC=y
+# BRCMFMAC_USB: bool, "depends on (USB = y || USB = BRCMFMAC)" (satisfied
+# by USB=y above) "depends on BRCMFMAC", selects BRCMFMAC_PROTO_BCDC +
+# FW_LOADER (already true via CFG80211's own select).
+CONFIG_BRCMFMAC_USB=y
+
+# --- Marvell: USB bus (SD87xx SDIO variants skipped for the same
+#     MMC-subsystem reasoning as Broadcom's SDIO above) -----------------
+CONFIG_WLAN_VENDOR_MARVELL=y
+# MWIFIEX (drivers/net/wireless/marvell/mwifiex/Kconfig): tristate,
+# depends on CFG80211.
+CONFIG_MWIFIEX=y
+# MWIFIEX_USB: tristate, "depends on MWIFIEX && USB" -- no further
+# dependency (unlike the SDIO/PCIE variants, which pull in MMC/PCI
+# respectively as a hard `depends on`, not just an enclosing menu).
+CONFIG_MWIFIEX_USB=y
+
+# --- MediaTek: MT7601U, one of the cheapest/most common USB dongle
+#     chipsets, single small firmware file, no extra Kconfig dependency
+#     chain at all ------------------------------------------------------
+CONFIG_WLAN_VENDOR_MEDIATEK=y
+# MT7601U (drivers/net/wireless/mediatek/mt7601u/Kconfig): tristate,
+# "depends on MAC80211" "depends on USB" -- nothing else.
+CONFIG_MT7601U=y
+
+# --- Intel: Kconfig breadth only, firmware deliberately NOT bundled ----
+# iwlwifi covers essentially every Intel laptop WiFi chipset since ~2008
+# and is exactly the kind of family a real Ubuntu-breadth comparison
+# would expect -- but its firmware is one file *per chip generation*,
+# each several hundred KB to a few MB, dozens of generations still in
+# the field, and no single file is "the" representative one the way
+# ath9k_htc's is. Bundling even a handful would materially eat into the
+# 192 MiB HB-N-002 budget for a family this project cannot boot-test on
+# real Intel hardware in this session anyway. The driver is included
+# here so the *symbol* is real and verified (a machine with an Intel
+# card is at least detected and correctly diagnosed as
+# "firmware missing" per HB-F-012, not silently invisible to the
+# kernel) -- widening this to an actual bundled firmware set is
+# explicitly left to F6.6 ("widen the curated chipset set"), which this
+# fragment's breadth work partially overlaps with; see Tasks.md.
+CONFIG_WLAN_VENDOR_INTEL=y
+# IWLWIFI (drivers/net/wireless/intel/iwlwifi/Kconfig): tristate,
+# "depends on PCI && HAS_IOMEM && CFG80211", "depends on IWLMEI ||
+# !IWLMEI" (trivially true -- IWLMEI stays unset), selects FW_LOADER.
+CONFIG_IWLWIFI=y
+# IWLMVM: tristate, "depends on MAC80211", "depends on
+# PTP_1588_CLOCK_OPTIONAL" -- the latter is a helper symbol with no
+# prompt of its own ("default y if PTP_1588_CLOCK=n", and this fragment
+# never turns PTP on), so it resolves to y with no separate line needed;
+# this is the modern MVM firmware op-mode every iwlwifi device from the
+# 7260 era onward actually uses (IWLDVM, the older op-mode, is left off
+# -- its device list is entirely pre-2013 hardware, out of proportion to
+# widen for given no firmware is bundled for either op-mode this round).
+CONFIG_IWLMVM=y

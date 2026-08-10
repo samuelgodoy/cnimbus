@@ -1,0 +1,25 @@
+KERNEL latest-stable
+BUSYBOX latest
+ARCH amd64
+HOSTNAME cnimbus-env-demo
+DHCP true
+
+# ENV is repeatable; a later ENV with the same key overrides an earlier
+# one. These reach ENTRYPOINT, CMD, and every SERVICE, exactly like
+# Docker's ENV.
+ENV APP_NAME=cnimbus-demo
+ENV APP_ENV=production
+ENV GREETING=hello-from-the-nimbusfile
+
+# BusyBox's own /bin/sh is already in the image -- no COPY needed for
+# this example. It prints the ENV vars once, then sits respawned by
+# init so the VM stays up to inspect (serial console, or `VBoxManage
+# guestproperty` if you're curious what init sees).
+#
+# "$$" escapes a literal "$" -- these $$VARs are meant for BusyBox's sh
+# to expand at boot (from the ENV directives above), not for the
+# Nimbusfile parser to expand at build time (that's what plain ARG/$NAME
+# without the extra "$" is for).
+ENTRYPOINT ["/bin/sh", "-c", "echo \"$$APP_NAME ($$APP_ENV): $$GREETING\"; sleep 3600"]
+
+FORMAT iso

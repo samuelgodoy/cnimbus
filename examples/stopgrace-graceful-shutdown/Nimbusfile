@@ -1,0 +1,20 @@
+KERNEL latest-stable
+BUSYBOX latest
+ARCH amd64
+HOSTNAME cnimbus-stopgrace-demo
+DHCP true
+
+# slow-shutdown-server installs a SIGTERM handler that finishes an
+# in-flight "transaction" (a simulated 8-second write) before exiting
+# on its own, instead of dying immediately.
+COPY ./slow-shutdown-server /usr/bin/slow-shutdown-server
+ENTRYPOINT /usr/bin/slow-shutdown-server
+CMD :8080
+
+# Without this, BusyBox init's own shutdown sequence gives every
+# process only ~1 second after SIGTERM before the guest halts --
+# nowhere near enough for the 8-second write above to finish. 15
+# comfortably covers it; tune to your own workload's real worst case.
+STOPGRACE 15
+
+FORMAT iso

@@ -1,0 +1,33 @@
+KERNEL latest-stable
+BUSYBOX latest
+ARCH amd64
+HOSTNAME cnimbus-hardboot-eth-demo
+
+# HARDBOOT eth swaps the VM-only network drivers (virtio-net) for real
+# physical wired-Ethernet chipset support (Intel e1000/e1000e family --
+# see kconfig/baremetal-eth.fragment) and builds a raw disk laid out for
+# a real USB-stick/bare-metal boot instead of a VM-only ISO. It is
+# resolved at `prepare` time (it changes the kernel), so you must pass
+# it there too -- not just here:
+#
+#   cnimbus prepare --hardboot eth
+#
+# A Nimbusfile whose HARDBOOT doesn't match the pieces it's building
+# against is rejected at build-iso time (the same provenance-mismatch
+# check ARCH/VGA already use) -- this is deliberate, so you can never
+# silently ship an image built with the wrong kernel.
+HARDBOOT eth
+DHCP true
+
+COPY ./helloserver /usr/bin/helloserver
+ENTRYPOINT /usr/bin/helloserver
+CMD :8080
+
+# FORMAT raw is required for a real USB/bare-metal boot: a plain ISO has
+# no MBR boot code at byte 0 (see the README's "Known limitations"), so
+# it can't be booted the way a USB stick needs. `raw` produces a GPT
+# disk with a small UEFI ESP plus the SquashFS root as its own
+# partition -- write it to a USB stick with `dd` (Linux/macOS) or
+# Rufus's "DD Image" mode (Windows), then boot the target machine's
+# UEFI firmware from that USB device.
+FORMAT raw

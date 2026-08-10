@@ -1,0 +1,16 @@
+KERNEL latest-stable
+BUSYBOX latest
+ARCH amd64
+HOSTNAME cnimbus-secureboot-demo
+DHCP true
+
+COPY ./helloserver /usr/bin/helloserver
+ENTRYPOINT /usr/bin/helloserver
+CMD :8080
+
+# --secureboot/--uki are build-iso flags, not Nimbusfile directives --
+# see this example's README for the exact commands. FORMAT raw is what
+# Hyper-V/VirtualBox's Secure Boot actually verifies against (a UEFI
+# boot loader on a real ESP); a plain ISO works too for VirtualBox/QEMU
+# but Hyper-V's --backend only supports FORMAT raw.
+FORMAT raw

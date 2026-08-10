@@ -1,0 +1,206 @@
+# x86_64-specific additions, merged alongside minimal.fragment.
+#
+# Console: the classic 16550-compatible UART every x86 hypervisor
+# exposes (QEMU's -serial, VMware's virtual COM port, ...), plus the
+# legacy VGA text console (tty0) real hardware and most hypervisors
+# still present by default.
+CONFIG_SERIAL_8250=y
+CONFIG_SERIAL_8250_CONSOLE=y
+
+# AD-060: re-enabled -- Proxmox's "Send Key: CTRL+ALT+DEL" (and any
+# other hypervisor's PS/2-keyscan injection) has nowhere to land at all
+# without this: the kernel's own ctrl-alt-del handling lives inside the
+# VT keyboard core (drivers/tty/vt/keyboard.c), which only ever sees a
+# keypress if some driver feeds it in -- with i8042/atkbd compiled out,
+# the emulated controller's scancodes never reach the kernel, silently
+# dropped in the (virtual) hardware's own FIFO. Confirmed via a real
+# Proxmox VM: `sendkey ctrl-alt-delete` through the QEMU monitor
+# produced no reboot at all (uptime kept climbing) with the driver
+# disabled.
+#
+# This reopens the real Hyper-V Generation 1 hang CONFIG_KEYBOARD_ATKBD
+# was originally disabled for (an infinite "Spurious ACK" retry loop
+# during i8042 controller probe, right after "Run /init as init
+# process", before the init script ever runs). Re-verified for real
+# against a local Hyper-V Generation 1 VM (this machine's own Hyper-V,
+# not a description of one) with atkbd re-enabled: a real boot reached
+# "rcS finished, services starting" and got a DHCP lease over
+# hv_netvsc, no hang at all, screenshot-confirmed via VMConnect and
+# cross-checked against a serial capture. The original hang was real
+# (its own comment history is specific enough -- an exact console
+# stopping point -- that it wasn't a misread), but does not reproduce
+# on whatever Hyper-V build/config this re-test actually ran against;
+# most likely explanation is a Windows-side Hyper-V update to its own
+# i8042 emulation sometime between the two tests, not a kernel-side
+# fix. No speculative cmdline workaround (i8042.reset and similar exist
+# but were never tried, since there was nothing here left to fix them
+# against) -- if a future real Hyper-V boot reproduces the original
+# hang again, that is the next real data point to act on, not a
+# reason to guess now.
+CONFIG_SERIO_I8042=y
+CONFIG_KEYBOARD_ATKBD=y
+
+# No mouse anywhere in this image, ever (by design -- see README's
+# "Known limitations"): nothing reads pointer input, so there is
+# nothing for psmouse to serve. Left disabled -- unlike the keyboard,
+# there was never a real user-visible reason to turn it back on, and
+# every controller-probe risk this fragment has ever found real
+# evidence for (the Hyper-V hang above) traces to the keyboard side,
+# not the AUX/mouse side specifically.
+CONFIG_MOUSE_PS2=n
+
+# Legacy PIIX/ICH IDE controller: QEMU's "-M pc" machine type and
+# VMware both still default to this for the primary disk controller.
+CONFIG_ATA_PIIX=y
+
+# CONFIG_X86_IOPL_IOPERM moved out of this always-merged fragment and
+# into the opt-in agent-vmware.fragment (T71): it grants a root-equivalent
+# process arbitrary IN/OUT access to the platform's entire I/O space, and
+# its only consumer is the AGENT vmware kind (cmd/cnimbusagent), which
+# most images never declare. Handing every image -- including every one
+# with no AGENT directive at all -- a capability only one specific,
+# opt-in feature uses is a straight attack-surface regression for a
+# project whose whole thesis is "an attacker who breaches the app finds
+# an empty void". See agent-vmware.fragment for where it lives now.
+
+# Retpoline (Spectre v2 mitigation). Renamed from CONFIG_RETPOLINE to
+# CONFIG_MITIGATION_RETPOLINE in kernel v6.9 (part of a broader x86
+# bugs/mitigations -> CONFIG_MITIGATION_* rename) -- verified against
+# current mainline before adding. Correct for "latest-stable" (which
+# resolves well past 6.9 today); an explicitly pinned KERNEL version
+# older than 6.9 would hard-fail here via verifyFragmentsApplied rather
+# than silently building an unmitigated kernel, which is the point.
+# CONFIG_MITIGATION_RETPOLINE itself has no `depends on` -- it lives
+# inside `if CPU_MITIGATIONS`, a menuconfig that defaults to y on a
+# normal build but collapses to off under tinyconfig (allnoconfig
+# forces every bool default to n regardless of its own `default y`) --
+# confirmed via a real build attempt dropping this symbol until the
+# menu gate itself was turned back on.
+CONFIG_CPU_MITIGATIONS=y
+CONFIG_MITIGATION_RETPOLINE=y
+
+# NICs: E1000 is the universal safe fallback every hypervisor (QEMU,
+# VMware, VirtualBox, Hyper-V) can emulate; VMXNET3 is VMware's own
+# paravirtualized NIC, faster than emulated e1000 under ESXi/Workstation/Fusion.
+# NVMe: QEMU/Proxmox can present a virtual NVMe controller.
+CONFIG_E1000=y
+CONFIG_VMXNET3=y
+CONFIG_BLK_DEV_NVME=y
+
+# Disk controllers: ESXi's default virtual SCSI controller for modern
+# Linux guests is "VMware Paravirtual" (PVSCSI); "LSI Logic SAS" is the
+# other common alternative some ESXi templates default to instead --
+# both boot to no root device without their matching driver.
+# depends on PCI && SCSI && X86 (verified against current mainline) --
+# both are therefore x86-only. PVSCSI apparently selects its own
+# PCI/SCSI dependencies (it built fine without either set explicitly);
+# FUSION_SAS does not (`depends on PCI && SCSI`, no select) and was
+# dropped by a real build until CONFIG_SCSI was added here explicitly.
+# CONFIG_PCI itself is NOT repeated here (a prior version of this
+# fragment did, believing it was "x86-only, not in minimal.fragment" --
+# wrong: minimal.fragment has set CONFIG_PCI=y since this project's
+# earliest commits, for both amd64 and arm64). The duplicate went
+# unnoticed for a long time because most real builds reused already-
+# cached pieces, never re-running merge_config.sh against a genuinely
+# fresh kernel checkout -- caught for real only when a build pinned to
+# an until-then-uncached kernel version (6.9.4) forced a fresh
+# merge_config.sh run, which T66's own checkMergeConfigConflicts
+# correctly flagged as two fragments setting the same symbol. drivers/
+# scsi's own CONFIG_SCSI has no PCI dependency of its own (only
+# `depends on BLOCK`, already satisfied by CONFIG_BLK_DEV_NVME above).
+CONFIG_SCSI=y
+# FUSION_SAS's own file wraps it in `menuconfig FUSION ... if FUSION
+# ... endif`, which adds an *implicit* `depends on FUSION` on top of
+# the symbol's own written `depends on PCI && SCSI` -- confirmed only
+# after CONFIG_PCI=y/CONFIG_SCSI=y alone still weren't enough on a
+# real build attempt. FUSION itself only needs `depends on PCI &&
+# HAS_IOPORT`, both already satisfied on x86_64.
+CONFIG_FUSION=y
+CONFIG_VMWARE_PVSCSI=y
+CONFIG_FUSION_SAS=y
+
+# HYPERVISOR_GUEST is the master gate for the whole "Linux guest support"
+# menu in arch/x86/Kconfig -- CONFIG_HYPERV depends on it, so with it off
+# (tinyconfig's default) every CONFIG_HYPERV* line below is silently
+# dropped by olddefconfig and no Hyper-V driver is built at all. Verified
+# empirically: a kernel with the HYPERV lines below but without this one
+# produced a .config containing zero HYPERV symbols, and the resulting
+# Hyper-V guest had no usable network device whatsoever (the host's ARP
+# for the guest stayed "Incomplete" forever). PARAVIRT lives inside the
+# same menu and is what the VMBus hypercall path needs.
+CONFIG_HYPERVISOR_GUEST=y
+CONFIG_PARAVIRT=y
+# Both are `default y` inside this same HYPERVISOR_GUEST menu on a
+# normal build, but "probably on, unasserted" is precisely the state
+# T30/T31/T33 each turned out to be wrong about under tinyconfig's
+# allnoconfig base -- asserted explicitly so verifyFragmentsApplied
+# actually proves them each build instead of hoping (T69). kvmclock in
+# particular is the difference between correct and drifting
+# timekeeping under KVM, which is this project's primary QEMU/Proxmox
+# target.
+CONFIG_KVM_GUEST=y
+CONFIG_PARAVIRT_SPINLOCKS=y
+
+# Hyper-V guest drivers: VMBus itself (the ACPI-enumerated channel every
+# other hv_* driver below is gated on), its clocksource, netvsc (NIC),
+# storvsc (IDE/SCSI-attached disk), and the utilities driver (KVP,
+# heartbeat, timesync, orderly shutdown from the Hyper-V host UI).
+# A Generation 1 VM's *emulated* NIC/IDE are covered by CONFIG_E1000 and
+# CONFIG_ATA_PIIX above, but Hyper-V attaches a synthetic (VMBus) network
+# adapter by default -- so HYPERV_NET specifically is what makes a
+# Generation 1 guest have any network at all, not merely a faster one.
+# CONNECTOR is a hard dependency of HYPERV_UTILS (netlink connector).
+CONFIG_CONNECTOR=y
+CONFIG_HYPERV=y
+CONFIG_HYPERV_TIMER=y
+CONFIG_HYPERV_UTILS=y
+CONFIG_HYPERV_NET=y
+CONFIG_HYPERV_STORAGE=y
+CONFIG_HYPERV_BALLOON=y
+
+# console=tty0 lists the VGA console first so real-hardware/no-serial
+# users watching a monitor still see boot messages; ttyS0 lists last so
+# it becomes the *preferred* /dev/console -- what the interactive shell
+# attaches to -- which is what makes this image usable headless too
+# (QEMU -nographic, cloud/VM serial consoles) with no extra flags.
+# no-vmw-sched-clock: see bootQuirks in cmd/cnimbus/build.go, which
+# adds it to isolinux's own APPEND line for BIOS boot -- kept here too
+# so a UEFI boot (no bootloader involved -- firmware invokes
+# BOOTX64.EFI directly) carries the same fix.
+#
+# CONFIG_CMDLINE_OVERRIDE=y (not the kernel's own default): without it,
+# a bootloader-supplied command line (isolinux's own APPEND line, on
+# BIOS boot) is *appended to* this string rather than replaced by it --
+# verified against docs.kernel.org/arch/x86/Kconfig's own CMDLINE_OVERRIDE
+# help text. That default already caused a real incident this project's
+# own ROADMAP records (the isolinux APPEND line and this CONFIG_CMDLINE
+# are two separately-maintained string literals with the same intent --
+# see ROADMAP.md theme 5 -- and a fix landed in one without the other).
+# Forcing OVERRIDE makes this fragment's CONFIG_CMDLINE the single
+# authoritative source regardless of which loader ran, at the cost of
+# isolinux's own APPEND line no longer being able to add anything the
+# kernel actually sees (it still serves its one real job of telling
+# ISOLINUX ITSELF, not the kernel, to load INITRD.IMG as the ramdisk --
+# that already happens before the kernel's own cmdline parsing runs).
+# ipv6.disable=1 (which used to be here) is gone: AD-047 reverses T12's
+# "disable IPv6 at boot instead of building real ip6tables coverage"
+# choice -- minimal.fragment now carries the full IP6_NF_* chain and
+# FIREWALL6 gives it real, declared rules, so there's no longer a gap
+# for disabling IPv6 outright to paper over. CONFIG_IPV6 itself lives in
+# minimal.fragment, unchanged by this file.
+CONFIG_CMDLINE_BOOL=y
+CONFIG_CMDLINE_OVERRIDE=y
+CONFIG_CMDLINE="console=tty0 console=ttyS0,115200n8 initrd=/EFI/BOOT/INITRD.IMG panic=10 oops=panic no-vmw-sched-clock"
+
+# amd64 halves of security-baseline.fragment's asserted hardening
+# posture (T67) -- both symbols are x86-only (KPTI is a Meltdown-class
+# mitigation with no arm64 equivalent by this name; RANDOMIZE_MEMORY is
+# x86's kernel-memory-layout ASLR, arm64's own equivalent is unconditional
+# and unnamed), so they belong here rather than in the arch-agnostic
+# fragment -- same reasoning T9 already established the hard way.
+# Renamed from CONFIG_PAGE_TABLE_ISOLATION in kernel v6.9 (same
+# bugs/mitigations -> MITIGATION_* rename as CONFIG_MITIGATION_RETPOLINE
+# above); lives inside the same `if CPU_MITIGATIONS` block already
+# turned on above.
+CONFIG_MITIGATION_PAGE_TABLE_ISOLATION=y
+CONFIG_RANDOMIZE_MEMORY=y

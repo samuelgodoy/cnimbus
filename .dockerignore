@@ -1,0 +1,11 @@
+.git/
+.claude/
+.specs/
+bin/
+dist/
+pieces/
+test/
+*.iso
+*.img
+*.vhd
+*.lock

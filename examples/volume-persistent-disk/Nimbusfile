@@ -1,0 +1,19 @@
+KERNEL latest-stable
+BUSYBOX latest
+ARCH amd64
+HOSTNAME cnimbus-volume-demo
+DHCP true
+
+# VOLUME mounts a device at boot -- it never formats it. /dev/vda here
+# must already be a real, pre-formatted FAT disk you attached to the VM
+# yourself (see this example's README for how, per hypervisor). If it
+# doesn't mount (wrong device name, not attached, not FAT), boot just
+# continues without it -- nothing is written to the device either way.
+VOLUME /dev/vda /mnt/data
+
+# Appends a line to /mnt/data/log.txt on every boot, so you can confirm
+# across a full poweroff+reattach+boot cycle that the file really
+# persisted on the disk and wasn't just RAM-backed.
+ENTRYPOINT ["/bin/sh", "-c", "echo \"booted at $(date)\" >> /mnt/data/log.txt 2>/dev/null; cat /mnt/data/log.txt 2>/dev/null; sleep 3600"]
+
+FORMAT iso

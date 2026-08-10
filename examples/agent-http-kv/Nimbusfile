@@ -1,0 +1,21 @@
+KERNEL latest-stable
+BUSYBOX latest
+ARCH amd64
+HOSTNAME cnimbus-agent-http-demo
+DHCP true
+
+# helloserver is a plain static Go binary -- build it first, see this
+# example's README. It reads /var/run/cnimbus-kv.json on every request,
+# which is exactly what AGENT below keeps up to date.
+COPY ./helloserver /usr/bin/helloserver
+ENTRYPOINT /usr/bin/helloserver
+CMD :8080
+
+# Poll http://10.0.2.2:9999/ (VirtualBox NAT's gateway IP reaching the
+# host) every 5 seconds, writing the response body to
+# /var/run/cnimbus-kv.json. Works on any hypervisor with guest
+# networking -- no vendor guest tools needed, at the cost of needing
+# that network path to the host at all.
+AGENT http://10.0.2.2:9999/ 5
+
+FORMAT iso

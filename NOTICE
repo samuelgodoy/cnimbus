@@ -1,0 +1,33 @@
+cnimbus is licensed under the MIT License (see LICENSE).
+
+It embeds and/or vendors the following third-party components, each under
+its own license:
+
+- **syslinux** (`internal/assets/data/syslinux/isolinux.bin`,
+  `ldlinux.c32`) -- prebuilt, redistributable binaries from the syslinux
+  project, embedded verbatim (not linked against, not modified) to serve
+  as the BIOS El Torito boot stage on amd64 ISOs. Licensed under the
+  GNU General Public License, version 2 (GPL-2.0). Source:
+  https://www.kernel.org/pub/linux/utils/boot/syslinux/
+
+- **github.com/diskfs/go-diskfs** -- MIT License, Copyright (c) 2017
+  Avi Deitcher. Used for ISO9660/FAT/SquashFS/GPT filesystem assembly.
+
+- **github.com/ulikunitz/xz** -- BSD 3-Clause License. Used (vendored,
+  under `internal/assets/data/thunder-src/vendor/`) by Thunder for
+  decompressing kernel.org's .tar.xz source tarballs.
+
+- **The Linux kernel** and **BusyBox** are downloaded at `cnimbus prepare`
+  time from their respective upstreams (kernel.org, busybox.net) and
+  compiled into the pieces that end up in a built image. They are not
+  redistributed by this repository; each is licensed under GPL-2.0 by
+  its own project. A cnimbus-built image is a combination of your own
+  ENTRYPOINT/SERVICE binaries with a GPL-2.0 kernel and BusyBox --
+  consult those projects' own licensing for redistribution of images
+  you build.
+
+Because the syslinux binaries are embedded as opaque, unmodified data
+files (an ISO boot stage, not code linked into `cnimbus`'s own binary),
+this repository's own source is licensed permissively (MIT) while still
+distributing that one GPL-2.0 component in full alongside it, as required
+by the GPL.

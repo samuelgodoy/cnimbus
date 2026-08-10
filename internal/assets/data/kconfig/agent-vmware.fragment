@@ -1,0 +1,15 @@
+# Opt-in fragment (T71), merged by cmd/thunder only when the Nimbusfile
+# declares `AGENT vmware` (mirrors vga.fragment/CNIMBUS_VGA's own
+# opt-in pattern exactly). amd64-only: VMware's I/O-port backdoor is an
+# x86 mechanism with no arm64 equivalent.
+#
+# iopl(2)/ioperm(2): the AGENT vmware kind (cmd/cnimbusagent) needs
+# ring-3 IN/OUT access to poke VMware's backdoor I/O port (0x5658) --
+# gated behind this symbol since kernel 5.5 (previously always compiled
+# in). Without it, iopl(2) fails with ENOSYS and AGENT vmware can never
+# succeed, even under real VMware (verified empirically -- this is
+# exactly what broke it before this symbol was first added). Previously
+# always merged into every amd64 image via vm-amd64.fragment regardless
+# of whether AGENT vmware was ever declared; moved here so it's a
+# declared capability rather than an ambient one granted to every image.
+CONFIG_X86_IOPL_IOPERM=y

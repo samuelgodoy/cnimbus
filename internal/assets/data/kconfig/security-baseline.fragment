@@ -1,0 +1,64 @@
+# Explicit assertion of hardening symbols this project previously only
+# ever *inherited* from olddefconfig's defaults instead of requesting --
+# invisible to verifyFragmentsApplied by construction, since it only
+# checks what a fragment actually requested (T67).
+#
+# Several of these are `default y` upstream but tinyconfig's allnoconfig
+# base forces every bool default to n regardless -- the exact mechanism
+# behind every prior symbol-drop incident in this project's history
+# (T30/T31/T33/T35's own notes). Merged on every arch, last, so nothing
+# below can be silently re-disabled by a later fragment without
+# checkMergeConfigConflicts (T66) catching it.
+#
+# Arch-specific equivalents (KPTI/CONFIG_MITIGATION_PAGE_TABLE_ISOLATION,
+# CONFIG_RANDOMIZE_MEMORY) live in vm-amd64.fragment instead -- this file
+# is documented arch-agnostic and T9's own incident is the reason not to
+# put an arch-only symbol here.
+
+# Kernel text segment stays read-only/non-executable-data at runtime --
+# without this, the STACKPROTECTOR/FORTIFY_SOURCE/HARDENED_USERCOPY
+# block added by T30 loses most of its value (a writable kernel .text is
+# a much easier target regardless of what userspace-facing hardening is
+# on top of it).
+CONFIG_STRICT_KERNEL_RWX=y
+CONFIG_DEBUG_WX=y
+
+# Hardened internal allocator/list metadata: makes heap-metadata and
+# linked-list corruption (the classic kernel exploit primitive) fail
+# loudly instead of silently corrupting adjacent state.
+CONFIG_SLAB_FREELIST_HARDENED=y
+
+# Detected data corruption panics instead of continuing to run on
+# corrupted state -- pairs directly with T10's own "oops=panic" cmdline
+# policy (turn a detected problem into a clean, observable reboot
+# instead of undefined behavior).
+CONFIG_BUG_ON_DATA_CORRUPTION=y
+
+# Freshly allocated heap memory is zeroed by default -- closes the
+# classic "read uninitialized heap data" info-leak class at negligible
+# cost for a project whose whole workload set is small microservices,
+# not allocator-microbenchmark-sensitive code.
+CONFIG_INIT_ON_ALLOC_DEFAULT_ON=y
+
+# Detects a kernel stack overflow (the stack running into adjacent
+# memory) at the moment it happens rather than as whatever corruption it
+# causes downstream.
+CONFIG_SCHED_STACK_END_CHECK=y
+
+# Surface removal: none of these have any legitimate use in an image
+# with no shell, no login, and no interactive debugging story by design.
+# /dev/mem, /dev/port: raw physical-memory/IO-port access from
+# userspace -- if a workload process is ever compromised, these are a
+# free kernel-memory read/write primitive that this image's own AGENT
+# HTTP/vmware transports have no reason to need.
+CONFIG_DEVMEM=n
+CONFIG_DEVPORT=n
+# /proc/kcore: a virtual ELF core dump of the entire kernel's live
+# memory -- a direct kernel-memory disclosure path with no consumer in
+# this project (no crash-analysis tooling ships in the image).
+CONFIG_PROC_KCORE=n
+# Legacy BSD-style /dev/ttyp* pseudo-terminals: this image has no shell
+# and no interactive login anywhere (README's own "Known limitations"),
+# so nothing ever opens one; the modern /dev/pts (CONFIG_UNIX98_PTYS,
+# already on above) is what BusyBox itself actually uses.
+CONFIG_LEGACY_PTYS=n

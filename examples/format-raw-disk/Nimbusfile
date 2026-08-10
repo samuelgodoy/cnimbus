@@ -1,0 +1,15 @@
+KERNEL latest-stable
+BUSYBOX latest
+ARCH amd64
+HOSTNAME cnimbus-rawdisk-demo
+DHCP true
+
+COPY ./helloserver /usr/bin/helloserver
+ENTRYPOINT /usr/bin/helloserver
+CMD :8080
+
+# "raw" produces a GPT-partitioned disk image with a UEFI-only ESP (no
+# BIOS boot path) instead of an ISO -- for hypervisors/clouds that
+# attach a virtual disk directly rather than booting from optical
+# media (most cloud VM import flows, some bare-metal provisioning).
+FORMAT raw

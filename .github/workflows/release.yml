@@ -1,0 +1,91 @@
+name: Release
+
+# Triggered only by pushing a SemVer tag (vMAJOR.MINOR.PATCH, e.g. v0.1.0
+# or v1.2.3-rc1) -- see RELEASING.md for the actual release process. Never
+# runs on a branch push or PR, so it can't fire accidentally.
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+*"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # Same cells ci.yml's build-all-targets already cross-compiles for
+        # (AD-006's host-platform matrix) -- kept in sync deliberately; a
+        # target added there (e.g. riscv64, added 2026-08-07 per AD-031)
+        # must be added here too, with the same excludes.
+        goos: [windows, linux, darwin]
+        goarch: [amd64, arm64, riscv64]
+        exclude:
+          # windows/riscv64 and darwin/riscv64 aren't real Go ports (only
+          # linux/riscv64 and openbsd/riscv64 are -- see `go tool dist
+          # list`), so exclude them rather than let the matrix
+          # cross-product try to build them.
+          - goos: windows
+            goarch: riscv64
+          - goos: darwin
+            goarch: riscv64
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: build ${{ matrix.goos }}/${{ matrix.goarch }}
+        env:
+          CGO_ENABLED: "0"
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          ext=""
+          if [ "${{ matrix.goos }}" = "windows" ]; then ext=".exe"; fi
+          # github.ref_name is the pushed tag itself (e.g. "v0.1.0") --
+          # used directly rather than `git describe`, since a release
+          # build's version string should be exactly the tag that
+          # triggered it, not whatever the nearest-tag-plus-commits
+          # heuristic resolves to.
+          bin="cnimbus-${{ matrix.goarch }}-${{ matrix.goos }}"
+          out="$bin-${{ github.ref_name }}"
+          mkdir -p "dist/$out"
+          go build -ldflags="-s -w -X main.version=${{ github.ref_name }}" \
+            -o "dist/$out/$bin$ext" ./cmd/cnimbus
+          cp LICENSE NOTICE "dist/$out/"
+          if [ "${{ matrix.goos }}" = "windows" ]; then
+            (cd dist && zip -r "$out.zip" "$out")
+          else
+            (cd dist && tar czf "$out.tar.gz" "$out")
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cnimbus-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: |
+            dist/*.zip
+            dist/*.tar.gz
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      # gh, not a third-party action -- one fewer supply-chain dependency
+      # for a step that runs on every tagged release.
+      - name: create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" \
+            --repo "${{ github.repository }}" \
+            --title "${{ github.ref_name }}" \
+            --generate-notes \
+            dist/*.zip dist/*.tar.gz

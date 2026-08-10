@@ -1,0 +1,25 @@
+# Optional: gives `console=tty0` an actual video driver to draw on.
+# Without this, CONFIG_VT/CONFIG_VT_CONSOLE (always on, see
+# minimal.fragment) provide the virtual-terminal *framework* but no
+# driver backs any real display device -- tty0 exists as a kernel
+# concept but renders nothing, so a GUI hypervisor's own display window
+# (VirtualBox chief among them; QEMU/Proxmox users normally rely on the
+# serial console instead and never notice) shows a black screen even on
+# a successful boot.
+#
+# Off by default -- most VM setups only need the serial console, and
+# this is a real (if small) amount of extra kernel code -- opt in with
+# `cnimbus prepare --vga`.
+
+# Legacy BIOS VGA text-mode console (x86_64 BIOS boot only; SeaBIOS,
+# VirtualBox's legacy BIOS, and real hardware all set up the text-mode
+# screen this reads from).
+CONFIG_VGA_CONSOLE=y
+
+# Framebuffer console: backs tty0 on UEFI boot (amd64 or arm64), using
+# whatever graphics framebuffer the firmware already set up (UEFI's GOP)
+# before the kernel even started -- no real GPU driver needed.
+CONFIG_FB=y
+CONFIG_FRAMEBUFFER_CONSOLE=y
+CONFIG_SYSFB_SIMPLEFB=y
+CONFIG_FB_SIMPLE=y
