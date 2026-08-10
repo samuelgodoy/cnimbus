@@ -23,7 +23,7 @@ way any Go CLI ships.
 1. Update [`CHANGELOG.md`](CHANGELOG.md): rename `## [Unreleased]` to
    `## [vX.Y.Z] - YYYY-MM-DD` and start a fresh empty `## [Unreleased]`
    above it.
-2. Commit that change on `main`.
+2. Commit that change on `master`.
 3. Tag it and push the tag:
 
    ```bash
@@ -60,22 +60,22 @@ hand, once, when actually ready to cut the first real release. No step
 here pushes anything on its own; each command is copy-pasteable but
 deliberate.
 
-1. Confirm `main` is clean and CI is green on its latest commit:
+1. Confirm `master` is clean and CI is green on its latest commit:
 
    ```bash
    git status
    git log --oneline -1
-   gh run list --branch main --limit 1
+   gh run list --branch master --limit 1
    ```
 
 2. Update [`CHANGELOG.md`](CHANGELOG.md): rename `## [Unreleased]` to
    `## [v0.1.0] - YYYY-MM-DD` (today's date) and add a fresh empty
-   `## [Unreleased]` above it. Commit that on `main`:
+   `## [Unreleased]` above it. Commit that on `master`:
 
    ```bash
    git add CHANGELOG.md
    git commit -m "Prepare CHANGELOG for v0.1.0"
-   git push origin main
+   git push origin master
    ```
 
 3. Tag and push the tag -- this is the step that actually triggers
@@ -110,5 +110,5 @@ The tag has already been pushed and the release title is already claimed
 by the failed run. Delete the GitHub Release draft (if one was partially
 created) and the tag (`git push --delete origin vX.Y.Z` -- ask before
 force-pushing or deleting anything shared if you're not the one who
-pushed it), fix the issue, and re-tag from a clean `main` once CI is
+pushed it), fix the issue, and re-tag from a clean `master` once CI is
 green there.

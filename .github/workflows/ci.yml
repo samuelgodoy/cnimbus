@@ -2,8 +2,13 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [master]
   pull_request:
+
+# Least-privilege default: every job below only reads the repo, never
+# writes anything -- no job needs more than this.
+permissions:
+  contents: read
 
 jobs:
   fmt-vet-test:
