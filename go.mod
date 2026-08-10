@@ -7,7 +7,7 @@ require (
 	github.com/diskfs/go-diskfs v1.9.4
 	github.com/google/uuid v1.6.0
 	github.com/ulikunitz/xz v0.5.15
-	golang.org/x/sys v0.43.0
+	golang.org/x/sys v0.45.0
 )
 
 require (
@@ -19,5 +19,5 @@ require (
 	github.com/pierrec/lz4/v4 v4.1.26 // indirect
 	github.com/pkg/xattr v0.4.12 // indirect
 	github.com/sirupsen/logrus v1.9.4 // indirect
-	golang.org/x/crypto v0.41.0 // indirect
+	golang.org/x/crypto v0.52.0 // indirect
 )
