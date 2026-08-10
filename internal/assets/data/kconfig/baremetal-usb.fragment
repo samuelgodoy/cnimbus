@@ -1,0 +1,59 @@
+# AD-049: USB core, host-controller, and mass-storage support -- merged
+# for ANY real-hardware HARDBOOT profile ("eth", "wifi", "eth+wifi"),
+# never for "none" (VM-only images have no reason to talk to USB at
+# all). Split out of baremetal-wifi.fragment (which used to carry the
+# USB core/host-controller lines below purely as a prerequisite for its
+# own USB-attached WiFi dongle drivers) once a real bare-metal boot
+# failure showed the actual gap: a real UEFI firmware loads the kernel
+# fine off a USB stick (firmware has its own USB stack for that), but
+# the *running* kernel then needs its own USB mass-storage driver to
+# re-discover that same stick as a block device -- something no
+# "HARDBOOT eth"-only build (no WiFi, so no reason to have pulled in
+# USB at all before this fragment existed) has ever had, confirmed by a
+# real serial capture showing every boot-media candidate device missing
+# entirely ("Can't lookup blockdev") no matter how long stage1's own
+# retry loop waited.
+#
+# Every symbol below is verified against the real upstream kernel
+# source the same way baremetal-wifi.fragment's own symbols were.
+
+# --- USB core + host controller (moved from baremetal-wifi.fragment) --
+# menuconfig USB_SUPPORT (drivers/usb/Kconfig), default y but still
+# force-n under allnoconfig like every other "default y" gate this
+# project has been bitten by before.
+CONFIG_USB_SUPPORT=y
+CONFIG_USB=y
+# USB_PCI: bool, depends on PCI, default y (drivers/usb/Kconfig) --
+# CONFIG_PCI=y already comes from minimal.fragment (amd64) /
+# vm-arm64.fragment's PCI_HOST_GENERIC+PCI_ECAM (arm64), both merged
+# ahead of this fragment.
+CONFIG_USB_PCI=y
+# xHCI (USB 3.0): the host controller on essentially every machine built
+# since ~2012 -- depends on HAS_DMA && HAS_IOMEM (both unconditionally
+# true on amd64/arm64). USB_XHCI_PCI is tristate, depends on USB_PCI,
+# default y -- same "still need it explicit" reasoning as above.
+CONFIG_USB_XHCI_HCD=y
+CONFIG_USB_XHCI_PCI=y
+# EHCI (USB 2.0): older/embedded hardware with no xHCI controller at
+# all. depends on HAS_DMA && HAS_IOMEM; USB_EHCI_PCI tristate/default y
+# under USB_EHCI_HCD, same story.
+CONFIG_USB_EHCI_HCD=y
+CONFIG_USB_EHCI_PCI=y
+
+# --- USB mass storage (new) --------------------------------------------
+# USB_STORAGE (drivers/usb/storage/Kconfig): tristate, "depends on
+# SCSI" -- CONFIG_SCSI=y and CONFIG_BLK_DEV_SD=y (its own real disk
+# driver, giving /dev/sdX naming) both already come from
+# minimal.fragment, merged ahead of this fragment. This is the actual
+# driver that makes a USB flash drive show up as a block device at all
+# -- without it, the running kernel can enumerate the USB device
+# (CONFIG_USB above) but never gets a /dev/sdX for it, exactly the real
+# failure this fragment exists to close.
+CONFIG_USB_STORAGE=y
+# USB_UAS (USB Attached SCSI): tristate, "depends on SCSI &&
+# USB_STORAGE" -- most USB3 flash drives/enclosures report as UAS
+# rather than legacy bulk-only transport for better throughput; without
+# it, a UAS-only device would enumerate but still never expose a block
+# device (USB_STORAGE's own bulk-only transport driver doesn't claim a
+# UAS interface).
+CONFIG_USB_UAS=y

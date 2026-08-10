@@ -1,0 +1,30 @@
+KERNEL latest-stable
+BUSYBOX latest
+ARCH amd64
+HOSTNAME cnimbus-staticip-demo
+
+# IP wins over DHCP whenever both are present -- DHCP true above is
+# harmless (ignored) here, kept only to show the precedence rule; you'd
+# normally just omit it and rely on IP alone.
+DHCP true
+IP 192.168.56.10 255.255.255.0 192.168.56.1
+
+COPY ./helloserver /usr/bin/helloserver
+ENTRYPOINT /usr/bin/helloserver
+CMD :8080
+
+# FIREWALL is a hook: BusyBox itself ships no iptables/nft userspace
+# binary. `cnimbus prepare` now builds and embeds a static one
+# automatically, but the COPY below still takes priority over it (see
+# README) -- useful if you need a different iptables build than the one
+# `prepare` produces. Loopback traffic and established/related
+# connections (replies to the guest's own outbound DNS/NTP/AGENT-poller
+# traffic) are always auto-accepted before any rule below runs -- no
+# need to declare either yourself; the entrypoint's own port is the
+# only rule this example actually needs.
+FIREWALL -P INPUT DROP
+FIREWALL -A INPUT -p tcp --dport 8080 -j ACCEPT
+
+COPY ./iptables /usr/sbin/iptables
+
+FORMAT iso

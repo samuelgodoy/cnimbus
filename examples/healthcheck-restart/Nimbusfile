@@ -1,0 +1,25 @@
+KERNEL latest-stable
+BUSYBOX latest
+ARCH amd64
+HOSTNAME cnimbus-healthcheck-demo
+DHCP true
+
+# A deliberately flaky entrypoint: answers fine for the first ~20s of
+# each run, then goes silent (never exits, never crashes -- just stops
+# responding) to trigger HEALTHCHECK's own restart path rather than the
+# plain crash-loop backoff RESTART governs on its own.
+COPY ./flaky-server /usr/bin/flaky-server
+ENTRYPOINT /usr/bin/flaky-server
+CMD :8080
+
+# Poll the entrypoint's own port every 5s; after 3 consecutive failures
+# (15s of being wedged), escalate SIGTERM then SIGKILL and restart it.
+# wget's exit code is what HEALTHCHECK actually checks -- any command
+# works as long as it exits 0 on healthy, nonzero on not.
+HEALTHCHECK --interval=5 --retries=3 wget -q -O /dev/null http://127.0.0.1:8080/health
+
+# Restart unconditionally (the default -- shown explicitly here since
+# this is the directive HEALTHCHECK's restarts actually go through).
+RESTART entrypoint always
+
+FORMAT iso

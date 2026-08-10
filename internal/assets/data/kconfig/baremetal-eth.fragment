@@ -1,0 +1,128 @@
+# HARDBOOT eth/wifi: real, physical-hardware wired-Ethernet chipset
+# support. Merged on top of minimal.fragment + vm-amd64.fragment/
+# vm-arm64.fragment, never in place of them -- the VM profile's own
+# CONFIG_E1000 (the old 82540EM-era PCI chip QEMU's "-device e1000" and
+# VirtualBox's default NIC both emulate) stays exactly as-is; this
+# fragment is additive.
+#
+# F6.1's spike deliberately picks *one* Ethernet family, chosen for a
+# reason spec.md's own risk table calls out: it must be common on real
+# physical hardware AND already reachable in QEMU/VirtualBox for a cheap
+# pre-check before spending the one physical-USB-boot attempt on it.
+# Intel's PRO/1000 family is the only candidate that satisfies both:
+#   - CONFIG_E1000  (vm-amd64.fragment/vm-arm64.fragment, unchanged):
+#     the legacy PCI 82540EM/82544GC/82545EM parts -- QEMU's "-device
+#     e1000" and VirtualBox's default "Intel PRO/1000 MT Desktop" NIC
+#     both emulate exactly this chip, and it still turns up in older
+#     real workstations/servers.
+#   - CONFIG_E1000E (added here): the PCI-Express successor family
+#     (82571-83, 82574L, and the I217/I218/I219 parts Intel's onboard
+#     desktop/laptop NICs have shipped for over a decade) -- this is
+#     the chip a real, current physical machine's wired Ethernet is far
+#     more likely to actually be. QEMU also emulates its 82574L member
+#     as "-device e1000e", giving a second, closer emulated pre-check
+#     beyond the "-device e1000" one this ticket asks for.
+#
+# Verified against the real upstream Kconfig at the tag `cnimbus
+# prepare` resolves today for "latest-stable" (kernel.org releases.json
+# moniker "stable" = 7.1.7; checked against the v7.1 tag's
+# drivers/net/ethernet/intel/Kconfig, which stable point releases don't
+# touch):
+#
+#   config E1000E
+#   	tristate "Intel(R) PRO/1000 PCI-Express Gigabit Ethernet support"
+#   	depends on PCI && (!SPARC32 || BROKEN)
+#   	depends on PTP_1588_CLOCK_OPTIONAL
+#   	select CRC32
+#
+# PCI is already =y (minimal.fragment). SPARC32 doesn't exist on
+# amd64/arm64, so `!SPARC32` is unconditionally true on both of this
+# project's architectures -- no extra symbol needed for that half.
+# PTP_1588_CLOCK_OPTIONAL is a promptless, purely-computed symbol
+# (`default y if PTP_1588_CLOCK=n`, drivers/ptp/Kconfig) -- it cannot be
+# requested directly via merge_config (no prompt means olddefconfig
+# recomputes it from its own default rule and discards any explicit
+# assignment), and doesn't need to be: this project's fragments never
+# request CONFIG_PTP_1588_CLOCK, so it stays at tinyconfig's
+# allnoconfig-forced =n, which makes PTP_1588_CLOCK_OPTIONAL resolve to
+# =y automatically -- satisfying E1000E's second `depends on` with no
+# fragment line of its own. CRC32 (the one `select`) is a small,
+# dependency-free symbol pulled in automatically by Kconfig's `select`
+# semantics and likewise needs no explicit line here.
+#
+# NET_VENDOR_INTEL (drivers/net/ethernet/intel/Kconfig's own enclosing
+# `if` gate, `default y`) is already satisfied under this project's
+# tinyconfig base the same way CONFIG_E1000 already proves in
+# vm-amd64.fragment/vm-arm64.fragment today (E1000 lives inside the
+# identical gate and already survives verifyFragmentsApplied on every
+# build) -- no separate line needed for the gate itself.
+#
+# Arch-agnostic on purpose (like security-baseline.fragment): nothing
+# in E1000E's dependency chain above is amd64- or arm64-specific --
+# real PCIe Intel NICs exist on arm64 physical hardware too (servers,
+# SBCs with a PCIe slot), and gating this fragment to `eth`/`wifi`
+# rather than to an architecture is the correct axis (see thunder's own
+# CNIMBUS_HARDBOOT switch in cmd/thunder/main.go).
+CONFIG_E1000E=y
+
+# --- F6.6 widening: Realtek RTL8169/8168/8101/8125 (r8169) -------------
+# The single most common wired NIC family on real consumer/desktop
+# motherboards that Intel's PRO/1000 family (above) does not cover --
+# arguably a more consequential gap than any additional WiFi vendor,
+# since it is on-board (not a card) on a large share of real machines
+# this ticket's physical-hardware checklist (F6.1) could actually land
+# on. Verified against the real upstream Kconfig at v7.1.7
+# (drivers/net/ethernet/realtek/Kconfig):
+#
+#   config R8169
+#   	tristate "Realtek 8169/8168/8101/8125 ethernet support"
+#   	depends on PCI
+#   	select FW_LOADER
+#   	select CRC32
+#   	select PHYLIB
+#   	select REALTEK_PHY
+#
+# PCI is already =y. FW_LOADER/CRC32/PHYLIB/REALTEK_PHY are all
+# `select`, not `depends on` -- same cascade-automatically reasoning
+# already relied on for ATH9K_HTC's ATH9K_HW/ATH9K_COMMON in
+# baremetal-wifi.fragment, re-verified here rather than assumed:
+# PHYLIB is a promptless `menuconfig` (drivers/net/phy/Kconfig) with no
+# `depends on` of its own, so `select` forces it to =y unconditionally;
+# REALTEK_PHY (drivers/net/phy/realtek/Kconfig, `source`d at line 380 of
+# the same file) sits inside that exact "if PHYLIB ... endif" block
+# (lines 22-467), so both selects resolve together with no unmet
+# dependency. Unlike E1000/E1000E, NET_VENDOR_REALTEK (this family's own
+# enclosing `if` gate, drivers/net/ethernet/realtek/Kconfig, `default y`
+# `depends on PCI`) is a *different* vendor gate than NET_VENDOR_INTEL's
+# -- nothing else in this project's fragments has opened it yet, so
+# (same "still need it explicit under allnoconfig" rule as every other
+# default-y gate here) it needs its own line, unlike E1000E's reuse of
+# an already-open Intel gate.
+#
+# Deliberately Kconfig-only, no firmware bundled -- same treatment as
+# IWLWIFI/IWLMVM in baremetal-wifi.fragment, for the same reason:
+# r8169_main.c's own MODULE_FIRMWARE table
+# (drivers/net/ethernet/realtek/r8169_main.c, v7.1.7) lists a distinct
+# rtl_nic/rtl<chip-rev>-<n>.fw file per specific chip revision (RTL8168D
+# through RTL8127A -- dozens of entries), no single "the" representative
+# file the way ath9k_htc's is, and the driver's own
+# rtl_request_firmware() (line 2683) explicitly handles "no firmware
+# available" as a normal, non-fatal case ("firmware loaded already or
+# no firmware available") for the many older/common revisions (plain
+# RTL8169, early RTL8168 steppings) that need none at all -- those work
+# out of the box with this line alone; a revision that does need a
+# specific file is at least detected and diagnosed as "firmware
+# missing" (HB-F-012) rather than invisible, exactly like IWLWIFI.
+#
+# Not boot-tested even at the QEMU/VirtualBox pre-check level F6.1 used
+# for E1000/E1000E: verified in-session that neither emulates any
+# R8169-family chip -- QEMU's own `-device help` lists only "rtl8139"
+# (the older, Kconfig-unrelated 8139TOO/8139CP family), and VirtualBox's
+# `--nic-type` options are Am79C970A/Am79C973/82540EM/82543GC/82545EM/
+# virtio/usbnet, no Realtek entry at all. This family's evidence today
+# is therefore Kconfig-verification plus a real `cnimbus prepare
+# --hardboot eth` compile (see Tasks.md's F6.6 entry) -- real-hardware
+# association is a named, still-open gap, same posture as F6.1's own
+# physical-USB-boot half.
+CONFIG_NET_VENDOR_REALTEK=y
+CONFIG_R8169=y

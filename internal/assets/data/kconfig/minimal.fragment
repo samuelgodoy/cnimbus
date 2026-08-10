@@ -1,0 +1,357 @@
+# Minimal kernel fragment for a cnimbus busybox-init image.
+# Merged on top of `make tinyconfig` via scripts/kconfig/merge_config.sh.
+# No loadable modules: everything needed must be builtin (=y), which
+# keeps the rootfs free of depmod/modprobe bookkeeping entirely.
+#
+# Architecture-agnostic: every option here is available on both x86_64
+# and arm64. Anything that isn't (the console/UART driver, the legacy
+# x86 PIIX IDE controller, the actual CONFIG_CMDLINE string) lives in
+# vm-amd64.fragment / vm-arm64.fragment instead.
+CONFIG_64BIT=y
+CONFIG_SMP=y
+CONFIG_MODULES=n
+
+# initramfs / boot
+CONFIG_BLK_DEV_INITRD=y
+CONFIG_RD_GZIP=y
+CONFIG_DEVTMPFS=y
+CONFIG_DEVTMPFS_MOUNT=y
+CONFIG_SHMEM=y
+CONFIG_TMPFS=y
+CONFIG_PROC_FS=y
+CONFIG_SYSFS=y
+
+# console framework (the actual UART driver is arch-specific)
+CONFIG_TTY=y
+CONFIG_VT=y
+CONFIG_VT_CONSOLE=y
+CONFIG_PRINTK=y
+
+# process/binfmt basics busybox needs
+CONFIG_BINFMT_ELF=y
+CONFIG_BINFMT_SCRIPT=y
+CONFIG_UNIX98_PTYS=y
+# Without this (tinyconfig's allnoconfig base disables it despite its
+# own "default y"), setuid/setgid/setgroups/capset are all compiled out
+# entirely -- verified empirically as "Function not implemented" from
+# BusyBox's setuidgid, breaking the Nimbusfile USER directive outright.
+CONFIG_MULTIUSER=y
+# Same tinyconfig-disables-"default y" story as CONFIG_MULTIUSER above:
+# without this, flock()/fcntl() advisory locking is compiled out and any
+# tool that takes a lock file fails with "Function not implemented" --
+# verified empirically via iptables-legacy's /run/xtables.lock, which
+# the Nimbusfile FIREWALL directive depends on.
+CONFIG_FILE_LOCKING=y
+# required by any multi-threaded userland runtime (Go, glibc pthreads, ...):
+# without it, thread/goroutine synchronization syscalls SIGSEGV instead of ENOSYS
+CONFIG_FUTEX=y
+# Go's netpoller (and most event-driven userland runtimes) needs these;
+# tinyconfig disables all of them by default.
+CONFIG_EPOLL=y
+CONFIG_EVENTFD=y
+CONFIG_SIGNALFD=y
+CONFIG_TIMERFD=y
+
+# storage: AHCI/SCSI + virtio (so the same image boots on real disks and QEMU)
+CONFIG_BLOCK=y
+CONFIG_PCI=y
+CONFIG_ATA=y
+CONFIG_SATA_AHCI=y
+CONFIG_SCSI=y
+CONFIG_BLK_DEV_SD=y
+# VIRTIO_MENU gates the whole "if VIRTIO_MENU" block in drivers/virtio/Kconfig;
+# tinyconfig forces it off, so children below are silently dropped without it.
+CONFIG_VIRTIO_MENU=y
+CONFIG_VIRTIO_PCI=y
+CONFIG_VIRTIO_BLK=y
+# AGENT virtio-serial: QEMU/Proxmox's own live-config channel, backed by
+# a host-side chardev (socket or file) with no qemu-guest-agent needed --
+# mainline and free the same way CONFIG_VBOXGUEST already is for
+# VirtualBox. Exposes /dev/vportNpM per virtio-console port the guest's
+# machine definition declares.
+CONFIG_VIRTIO_CONSOLE=y
+
+# ISO boot media
+CONFIG_BLK_DEV_SR=y
+CONFIG_ISO9660_FS=y
+
+# read-only SquashFS root: a tiny stage-1 initramfs (busybox + its
+# applet symlinks, same as before) mounts this via loop and switch_root
+# into it. cnimbus builds these gzip-compressed by default (see
+# internal/rootfs/squashfsroot.go -- an uncompressed build was tried
+# first for speed, but go-diskfs's NoCompress* combination produces a
+# superblock the kernel's own squashfs driver rejects with EINVAL,
+# verified against two unrelated kernels), so ZLIB genuinely is in active
+# use here, not just kept on for hypothetical future use.
+#
+# MISC_FILESYSTEMS is a real, load-bearing dependency, not decoration:
+# fs/squashfs/Kconfig is `source`d from inside fs/Kconfig's
+# `if MISC_FILESYSTEMS ... endif` block, so without this line SQUASHFS=y
+# is silently dropped back to "not set" during config resolution --
+# verified empirically (fs/squashfs/*.o simply didn't appear in a build
+# log without it, no warning printed anywhere).
+CONFIG_MISC_FILESYSTEMS=y
+CONFIG_BLK_DEV_LOOP=y
+CONFIG_SQUASHFS=y
+CONFIG_SQUASHFS_ZLIB=y
+
+# optional persistent VOLUME (mounted -- never formatted -- at boot by
+# rcS, only acted on if the Nimbusfile has a VOLUME directive): the
+# device must already be a real, pre-formatted FAT disk; FAT is simply
+# the format this build supports mounting, not something cnimbus creates.
+CONFIG_FAT_FS=y
+CONFIG_VFAT_FS=y
+# exFAT (AD-049): Ventoy's own multiboot USB data partition is exFAT by
+# default (its own docs confirm this; also this format's practical
+# default on any USB stick over ~32GB, since plain FAT32 tops out
+# there) -- needed so stage1's Ventoy-compatibility scan can mount that
+# partition at all to find the .iso file sitting on it. tristate, no
+# further Kconfig dependency chain beyond auto-selecting BUFFER_HEAD/
+# NLS/LEGACY_DIRECT_IO (verified against the real fs/exfat/Kconfig).
+CONFIG_EXFAT_FS=y
+CONFIG_NLS=y
+CONFIG_NLS_CODEPAGE_437=y
+CONFIG_NLS_ISO8859_1=y
+# ext4: VOLUME's second supported filesystem (VOLUME <dev> <mount> ext4)
+# -- real POSIX permissions/ownership/hardlinks that FAT simply has no
+# on-disk representation for. Still never formatted by cnimbus itself,
+# same as the FAT path -- the device must already be a real,
+# pre-formatted ext4 disk.
+CONFIG_EXT4_FS=y
+# e2fsprogs' mke2fs has defaulted to the metadata_csum feature for years
+# now (confirmed against a real mkfs.ext4 1.47.4 disk image: features
+# line includes "metadata_csum metadata_csum_seed"), which needs a
+# crc32c implementation to even mount, not just to write -- without
+# this, mounting a completely ordinary, real-world "mkfs.ext4" disk
+# silently fails (busybox's mount just reports ENOPKG-shaped failure;
+# nothing readable on the console explains why). CONFIG_EXT4_FS's own
+# Kconfig only selects CRC16/CRC32 (checksums ext4 always needed), not
+# CRC32C (only needed for this specific, now-default, feature) --
+# confirmed directly against fs/ext4/Kconfig and crypto/Kconfig's
+# CRYPTO_CRC32C entry (which lives inside an "if CRYPTO" block, so
+# CONFIG_CRYPTO=y has to be requested too, not just CRYPTO_CRC32C).
+CONFIG_CRYPTO=y
+CONFIG_CRYPTO_CRC32C=y
+
+# ACPI power button: without this, a hypervisor's "send ACPI shutdown"
+# action has nothing to deliver the event to, and only a hard power-off
+# (equivalent to pulling the plug) actually stops the VM.
+CONFIG_ACPI_BUTTON=y
+
+# AD-059: CONFIG_ACPI_BUTTON alone is not enough -- it registers the
+# power button as a standard input device (drivers/acpi/button.c calls
+# input_register_device()), but nothing exposes that device to
+# userspace without this. Confirmed as the real cause of a Proxmox VM's
+# "Signal Shutdown" hanging until Proxmox's own timeout
+# ("VM quit/powerdown failed - got timeout"): BusyBox's acpid, run with
+# no "-e" flag (see buildRCScript's "acpid &"), reads events from
+# /dev/input/event* -- verified against BusyBox 1.36.1's own
+# util-linux/acpid.c, not assumed -- never from the netlink-based
+# mechanism or the deprecated /proc/acpi/event. Without
+# CONFIG_INPUT_EVDEV, /dev/input/event* never exists at all
+# (drivers/input/Kconfig's INPUT_EVDEV, tristate, no further deps once
+# CONFIG_INPUT=y), so acpid had nothing to read and the power button
+# event was silently lost -- the kernel-side ACPI plumbing worked the
+# whole time, only the userspace-visible half was missing.
+CONFIG_INPUT_EVDEV=y
+
+# VirtualBox's real guest-integration channel (VMMDev/HGCM), mainline
+# since ~4.14 -- gives /dev/vboxguest without installing Guest
+# Additions at all. See cmd/vboxagent for the userspace side (Guest
+# Properties specifically), used by the Nimbusfile's AGENT directive.
+# VIRT_DRIVERS is the same kind of gate as MISC_FILESYSTEMS above:
+# drivers/virt/vboxguest/Kconfig is `source`d from inside
+# drivers/virt/Kconfig's `if VIRT_DRIVERS ... endif`, so CONFIG_VBOXGUEST=y
+# alone is silently dropped without it -- verified empirically the same
+# way (no CONFIG_VBOXGUEST line at all in the resulting .config, not
+# even "is not set").
+CONFIG_INPUT=y
+CONFIG_VIRT_DRIVERS=y
+CONFIG_VBOXGUEST=y
+
+# netfilter: kernel-side only. BusyBox itself has no iptables/nft
+# binary (that's a separate package); this just means one works if the
+# Nimbusfile's FIREWALL directive is paired with a COPY'd static
+# iptables binary -- see FIREWALL in the Nimbusfile directive docs.
+# Both IP_NF_IPTABLES and IP_NF_IPTABLES_LEGACY exist and are needed:
+# the former is the `if IP_NF_IPTABLES` menu gate wrapping IP_NF_FILTER
+# and every other legacy table/target in net/ipv4/netfilter/Kconfig, the
+# latter is what actually builds the legacy (non-nftables) xtables ABI
+# the static iptables binary talks to. IP_NF_FILTER is what registers
+# the `filter` table itself -- without it iptables has no
+# INPUT/FORWARD/OUTPUT chains to operate on at all.
+#
+# The full chain, spelled out because every link is load-bearing and
+# Kconfig drops a symbol *silently* when one is missing (which is why
+# verifyFragmentsApplied in internal/compileagent/kernel.go now fails
+# the build instead of letting it through):
+#   IP_NF_IPTABLES        -- no deps, but NETFILTER_ADVANCED=y below
+#                            cancels its "default m", so it must be
+#                            requested explicitly or the whole menu
+#                            below it vanishes
+#   IP_NF_FILTER          <- if IP_NF_IPTABLES
+#   IP_NF_TARGET_REJECT   <- IP_NF_FILTER  (for FIREWALL -j REJECT)
+#   XT_MATCH_STATE        <- NF_CONNTRACK  (for FIREWALL -m state)
+# NF_CONNTRACK is what makes stateful rules possible at all; a firewall
+# that can't say "-m state --state ESTABLISHED,RELATED" can't express
+# the single most common inbound-filtering idiom there is.
+#
+# CONFIG_NETFILTER_XTABLES_LEGACY is deliberately NOT set here (a prior
+# version of this fragment removed it after finding it absent from
+# kernel 6.9.4's own net/netfilter/Kconfig, and concluded -- wrongly, as
+# AD-047 later found -- that it wasn't a real symbol at all: it exists
+# starting with some later kernel release, where IP_NF_IPTABLES_LEGACY/
+# IP6_NF_IPTABLES_LEGACY below both `depends on` it). Whether a given
+# build actually needs it varies by kernel version, which a static
+# fragment file can't express -- cmd/thunder detects it directly against
+# the real fetched source (KernelDefinesNetfilterXtablesLegacy) and
+# merges a small synthetic fragment setting it, only when present.
+CONFIG_NETFILTER=y
+CONFIG_NETFILTER_ADVANCED=y
+CONFIG_NETFILTER_XTABLES=y
+CONFIG_NF_CONNTRACK=y
+CONFIG_NETFILTER_XT_MATCH_STATE=y
+CONFIG_IP_NF_IPTABLES=y
+CONFIG_IP_NF_IPTABLES_LEGACY=y
+CONFIG_IP_NF_FILTER=y
+CONFIG_IP_NF_TARGET_REJECT=y
+
+# IPv6 mirror of the IPv4 chain immediately above, same reasoning
+# throughout (IP6_NF_IPTABLES is the menu gate, IP6_NF_IPTABLES_LEGACY
+# is the actual legacy xtables ABI, IP6_NF_FILTER registers the `filter`
+# table, IP6_NF_TARGET_REJECT backs a FIREWALL6 "-j REJECT" the same way
+# IP_NF_TARGET_REJECT does for FIREWALL). NF_CONNTRACK/
+# NETFILTER_XT_MATCH_STATE above are already protocol-agnostic in
+# current mainline (there is no separate NF_CONNTRACK_IPV6 symbol to
+# set -- verified by grepping the real kernel source: it doesn't exist),
+# so IPv6 "-m state" rules work with nothing extra needed here.
+# CONFIG_IPV6 itself lives at the top of this file (see the interface
+# block above) -- this only adds the netfilter/xtables side of it.
+CONFIG_IP6_NF_IPTABLES=y
+CONFIG_IP6_NF_IPTABLES_LEGACY=y
+CONFIG_IP6_NF_FILTER=y
+CONFIG_IP6_NF_TARGET_REJECT=y
+
+# networking (userland dhcp via busybox udhcpc)
+CONFIG_NET=y
+CONFIG_UNIX=y
+CONFIG_INET=y
+# AF_PACKET: udhcpc (and any DHCP client) needs a raw link-layer socket
+# to send/receive before an IP address exists.
+CONFIG_PACKET=y
+CONFIG_NETDEVICES=y
+CONFIG_VIRTIO_NET=y
+# IPv6: compiled in, but disabled at boot by default via the
+# "ipv6.disable=1" cmdline parameter (vm-amd64.fragment/
+# vm-arm64.fragment's CONFIG_CMDLINE) -- the kernel handles
+# router-advertisement-based autoconfiguration (SLAAC) entirely on its
+# own the moment an interface with this compiled in comes up on a
+# network that offers router advertisements, with no FIREWALL coverage
+# at all (the FIREWALL directive only ever drives ip*tables*, IPv4-only
+# -- see ROADMAP.md's IPv6/firewall parity milestone), which would let
+# a workload stay reachable over IPv6 even under a Nimbusfile that
+# declares a DROP-default FIREWALL policy. Disabled by default until
+# FIREWALL grows real IPv6 coverage; cnimbus images are IPv4-only for
+# now (see README).
+CONFIG_IPV6=y
+
+# no module signing / debug info -> no libssl-dev, no dwarves needed
+CONFIG_MODULE_SIG=n
+CONFIG_DEBUG_INFO=n
+
+# UEFI boot: with EFI_STUB, the same kernel image is *also* a valid
+# PE32+ EFI application -- UEFI firmware can load it directly with no
+# separate bootloader, on both x86_64 and arm64. ACPI is EFI's own hard
+# Kconfig dependency. The actual CONFIG_CMDLINE string (console name
+# differs per arch) is set in vm-amd64.fragment/vm-arm64.fragment --
+# CONFIG_CMDLINE_BOOL (the x86 gate that gets CONFIG_CMDLINE= itself
+# honored) lives there too, not here: it's an x86-only Kconfig symbol
+# (arm64's Kconfig has no such prompt at all -- CONFIG_CMDLINE= is
+# unconditionally available there), so requesting it from this
+# supposedly architecture-agnostic fragment hard-failed every arm64
+# build via verifyFragmentsApplied (the symbol can never "survive"
+# olddefconfig on an arch where it doesn't exist to begin with).
+CONFIG_ACPI=y
+CONFIG_EFI=y
+CONFIG_EFI_STUB=y
+
+# Kernel-hardening symbols tinyconfig turns off by default, none of
+# which cnimbus's own fragments ever turned back on before -- verified
+# arch-agnostic (both exist in arch/x86/Kconfig and arch/arm64/Kconfig
+# under the same name, or in generic arch/Kconfig/security/Kconfig)
+# against current mainline before adding.
+CONFIG_RANDOMIZE_BASE=y
+CONFIG_STACKPROTECTOR=y
+CONFIG_STACKPROTECTOR_STRONG=y
+CONFIG_FORTIFY_SOURCE=y
+CONFIG_VMAP_STACK=y
+CONFIG_HARDENED_USERCOPY=y
+# SLAB_FREELIST_RANDOM depends on !SLUB_TINY (mm/Kconfig) -- tinyconfig
+# bakes in SLUB_TINY=y via its own kernel/configs/tiny.config merge
+# (optimizing for minimal size), which closed this gate; confirmed via
+# olddefconfig itself dropping the request before this override was
+# added. EXPERT (SLUB_TINY's own other dependency) is already
+# satisfied by tinyconfig.
+CONFIG_SLUB_TINY=n
+CONFIG_SLAB_FREELIST_RANDOM=y
+
+# virtio-scsi: Proxmox's default "VirtIO SCSI single" controller
+# currently boots to no root device without this.
+CONFIG_SCSI_VIRTIO=y
+
+# Memory overcommit currently only worked on Hyper-V (via
+# CONFIG_HYPERV_BALLOON, vm-amd64.fragment), not on the QEMU/Proxmox/KVM
+# platforms this project's density argument targets.
+CONFIG_VIRTIO_BALLOON=y
+
+# No printk timestamps before this -- the exact gap that turned a real
+# VMware sched_clock bug (see ROADMAP.md) into a multi-minute "hung or
+# just slow?" diagnosis.
+CONFIG_PRINTK_TIME=y
+
+# seccomp: arch/Kconfig's SECCOMP depends on HAVE_ARCH_SECCOMP, which
+# both x86 and arm64 satisfy automatically (their top-level arch config
+# unconditionally selects HAVE_ARCH_SECCOMP_FILTER, which in turn
+# selects HAVE_ARCH_SECCOMP) -- no extra HAVE_ARCH_* symbol needed here.
+# SECCOMP_FILTER itself is def_bool y (auto-follows once its own
+# `depends on HAVE_ARCH_SECCOMP_FILTER && SECCOMP && NET` chain is
+# satisfied -- CONFIG_NET=y is already set above), listed explicitly
+# only for verifyFragmentsApplied to actually confirm it, not because
+# olddefconfig needs the hint.
+CONFIG_SECCOMP=y
+CONFIG_SECCOMP_FILTER=y
+
+# Entropy (T68): a micro-VM has none of the noise sources a real machine
+# credits (no disk seek jitter, no keyboard/mouse, minimal network
+# jitter this early in boot) and this project's own build is
+# deliberately reproducible (T11's fixed KBUILD_BUILD_TIMESTAMP) --
+# byte-identical media across a fleet of identically-built images is
+# exactly the classic cloned-VM entropy-collapse setup. virtio-rng is
+# the standard host->guest entropy path on QEMU/KVM, Proxmox,
+# Firecracker and Cloud Hypervisor alike.
+CONFIG_HW_RANDOM=y
+CONFIG_HW_RANDOM_VIRTIO=y
+
+# Tick/timer policy for density (T69): a periodic (HZ_PERIODIC) tick
+# wakes every idle guest's vCPU hundreds of times a second doing
+# nothing -- directly against the "how many micro-VMs fit on a host"
+# argument this project makes for itself.
+CONFIG_NO_HZ_IDLE=y
+CONFIG_HIGH_RES_TIMERS=y
+# Caps the size of every per-CPU array the kernel allocates for CPUs
+# this guest will never have -- a large arch default here inflates the
+# boot-time memory floor this project advertises as tiny. 8 is generous
+# headroom over --smp's own default of 2 (cmd/cnimbus/run.go).
+CONFIG_NR_CPUS=8
+
+# Firecracker/Cloud Hypervisor path (T70): those hypervisors expose no
+# PCI bus at all -- every device is virtio-mmio, discovered from the
+# kernel cmdline or a DT node. Cheap and harmless on every PCI
+# hypervisor this project already supports; without it a cnimbus kernel
+# booted under Firecracker finds zero devices regardless of anything
+# else being right. Does not by itself unblock M8 (Firecracker has no
+# BIOS/El Torito/ESP -- ROADMAP.md's M8 tracks the boot-media redesign
+# that's the actually-hard remaining part), but it removes the one
+# kernel-side blocker.
+CONFIG_VIRTIO_MMIO=y
+CONFIG_VIRTIO_MMIO_CMDLINE_DEVICES=y

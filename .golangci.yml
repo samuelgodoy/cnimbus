@@ -1,0 +1,79 @@
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  default: standard
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - unused
+    - ineffassign
+    - gosec
+  settings:
+    gosec:
+      excludes:
+        # G304 (file path from variable): every internal/pieces,
+        # internal/compileagent, cmd/cnimbus file read is by design
+        # driven by --pieces/COPY/ADD/Nimbusfile paths the user
+        # themselves supplied on the command line or in the Nimbusfile
+        # they authored -- there is no untrusted-input boundary here to
+        # flag, the user already has full control over what cnimbus
+        # reads and writes on their own machine.
+        - G304
+        # G401/G505 (weak crypto - SHA-1): used only for the WKD lookup
+        # hash (internal/compileagent/verify.go's zbase32), which is the
+        # Web Key Directory spec's own required algorithm for computing
+        # the lookup path -- not used for any security property here,
+        # only as a deterministic directory-lookup key. Real signature
+        # verification is SHA-256/RSA via the OpenPGP packet itself.
+        - G401
+        - G505
+        # G301/G302/G306 (dir/file perms looser than 0750/0600): every
+        # instance in this codebase is a deliberately shared artifact --
+        # a temp ISO/FAT workspace this process alone touches, a
+        # published "piece" (vmlinuz/busybox) meant to be fetched by a
+        # different process/user, or a live kv file an unprivileged
+        # USER needs to read -- not a multi-tenant secrets-at-rest
+        # scenario 0600 would actually help. See individual inline
+        # comments at the more surprising call sites.
+        - G301
+        - G302
+        - G306
+        # G703 (path traversal via taint analysis): cmd/cnimbus's own
+        # CLI-argument-driven paths (init's output path, build-disk's -o,
+        # -f) are the user's own filesystem, supplied on their own
+        # command line -- not a remote/untrusted input boundary.
+        - G703
+        # G204 (subprocess launched with a variable): internal/dockerrun
+        # shells out to the user's own local `docker` with args this
+        # tool itself constructs (image tags, mount paths, platform
+        # strings) -- there is no remote/untrusted caller feeding these.
+        - G204
+        # G704 (SSRF via taint analysis): cmd/imdsagent's requests
+        # always target the fixed link-local metadata address
+        # 169.254.169.254 -- only the path/query, never the scheme or
+        # host, is built from a variable (the Nimbusfile author's own
+        # AGENT aws-imds/ibm-imds argument), so there is no way for this
+        # to be redirected to an attacker-chosen destination.
+        - G704
+        # G122 (TOCTOU symlink race in filepath.Walk callbacks):
+        # cmd/cnimbus's COPY/ADD directory walk reads files from a
+        # directory the Nimbusfile author themselves pointed it at, on
+        # their own machine, during their own build -- not a
+        # multi-tenant service walking untrusted/attacker-writable trees.
+        - G122
+  exclusions:
+    paths:
+      - internal/assets/data/thunder-src/vendor
+    rules:
+      # Test files: file/dir perms, exec.Command with a computed name,
+      # and ignored Write()/Close() on throwaway httptest servers and
+      # diskfs backends are the normal shape of test fixtures -- there's
+      # no data at risk in a test fixture that outlives the test itself.
+      - path: _test\.go
+        linters:
+          - gosec
+          - errcheck

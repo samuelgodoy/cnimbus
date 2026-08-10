@@ -1,0 +1,92 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  fmt-vet-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: gofmt
+        run: |
+          out=$(gofmt -l cmd internal | grep -v '/vendor/' || true)
+          if [ -n "$out" ]; then
+            echo "gofmt found unformatted files:"
+            echo "$out"
+            exit 1
+          fi
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: go build
+        run: go build ./...
+
+      # -short skips internal/compileagent's live kernel.org network
+      # integration test (~150MB download) -- see verify_test.go.
+      - name: go test
+        run: go test -short ./...
+
+      - name: Thunder source sync check
+        run: |
+          go generate ./internal/assets/...
+          if ! git diff --exit-code internal/assets/data/thunder-src; then
+            echo "cmd/thunder or internal/compileagent has drifted from its embedded copy under internal/assets/data/thunder-src."
+            echo "Run 'go generate ./internal/assets' locally and commit the result -- see CONTRIBUTING.md."
+            exit 1
+          fi
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+
+  build-all-targets:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        goos: [windows, linux, darwin]
+        goarch: [amd64, arm64, riscv64]
+        # riscv64 is a real, if experimental, Go host-platform target
+        # (`go tool dist list` shows only linux/riscv64 and
+        # openbsd/riscv64) -- windows/riscv64 and darwin/riscv64 don't
+        # exist as Go ports, so exclude them rather than let the matrix
+        # cross-product try to build them.
+        exclude:
+          - goos: windows
+            goarch: riscv64
+          - goos: darwin
+            goarch: riscv64
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history (not the default shallow fetch-depth: 1), so
+          # `git describe --tags` below can actually see tags instead of
+          # only ever falling back to a bare commit hash.
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: build ${{ matrix.goos }}/${{ matrix.goarch }}
+        env:
+          CGO_ENABLED: "0"
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          ext=""
+          if [ "${{ matrix.goos }}" = "windows" ]; then ext=".exe"; fi
+          version=$(git describe --tags --always --dirty)
+          go build -ldflags="-s -w -X main.version=${version}" -o "dist/cnimbus-${{ matrix.goos }}-${{ matrix.goarch }}$ext" ./cmd/cnimbus

@@ -1,0 +1,91 @@
+# arm64-specific additions, merged alongside minimal.fragment.
+#
+# Console: PL011 is the ARM "AMBA" UART QEMU's -M virt machine (and
+# most arm64 VMs/hypervisors) expose as the primary serial console.
+# There is no arm64 equivalent of x86's legacy VGA text console (tty0)
+# to also list -- arm64 has no BIOS-era legacy hardware at all, UEFI
+# (or QEMU's own firmware) is the only boot path, so ttyAMA0 alone is
+# both the boot log and the interactive console.
+CONFIG_SERIAL_AMBA_PL011=y
+CONFIG_SERIAL_AMBA_PL011_CONSOLE=y
+
+# PCI host bridge: unlike x86, arm64 has no arch-level PCI host bridge
+# code at all, so CONFIG_PCI=y (minimal.fragment) alone drives nothing.
+# QEMU's -M virt (and every other arm64 UEFI VM) exposes a generic ECAM
+# PCI host bridge -- without these two symbols, none of the
+# CONFIG_VIRTIO_PCI/VIRTIO_BLK/VIRTIO_NET/E1000/BLK_DEV_NVME/VMXNET3
+# support below has any bus to attach to: the image boots, prints the
+# stage-1 banner, and then finds no disk and no network at all (T61).
+CONFIG_PCI_HOST_GENERIC=y
+CONFIG_PCI_ECAM=y
+
+# NICs: E1000 is the universal safe fallback every hypervisor (QEMU,
+# VMware, VirtualBox) can emulate on arm64 too; VMXNET3 is VMware's own
+# paravirtualized NIC. NVMe: QEMU/Proxmox can present a virtual NVMe
+# controller on arm64 the same way as on x86_64.
+CONFIG_E1000=y
+CONFIG_VMXNET3=y
+CONFIG_BLK_DEV_NVME=y
+
+# CPU-mitigation symbols (F1): amd64 already has CONFIG_CPU_MITIGATIONS/
+# CONFIG_MITIGATION_RETPOLINE in vm-amd64.fragment; arm64 had nothing
+# equivalent. Verified directly against the actual arch/arm64/Kconfig this
+# project's own `prepare` fetches (kernel.org "latest-stable", checked
+# against a real GitHub mirror checkout of that release's tag) rather than
+# assumed -- every symbol below is `default y` in upstream Kconfig, which
+# is irrelevant here: this project builds from tinyconfig, where every
+# bool defaults to n regardless of its own `default y` (the same reason
+# vm-amd64.fragment has to force CONFIG_MITIGATION_RETPOLINE explicitly),
+# so each needs an explicit line here or it silently doesn't exist.
+#
+# UNMAP_KERNEL_AT_EL0 (KPTI, Meltdown-class mitigation) and
+# MITIGATE_SPECTRE_BRANCH_HISTORY (Spectre-BHB) are top-level symbols
+# with no `depends on` beyond arch/arm64 itself -- no hidden chain to
+# trip over.
+CONFIG_UNMAP_KERNEL_AT_EL0=y
+CONFIG_MITIGATE_SPECTRE_BRANCH_HISTORY=y
+
+# E0PD: constant-time faulting for EL0 accesses via TTBR1 (ARMv8.5) --
+# same "no hidden depends" situation as the two symbols above.
+CONFIG_ARM64_E0PD=y
+
+# Pointer Authentication (PAC): ARM64_PTR_AUTH has no depends; its kernel-
+# side companion ARM64_PTR_AUTH_KERNEL depends on toolchain support for
+# the pac-ret branch-protection flag, satisfied by the GCC 16 this
+# project's builder image already uses (internal/assets/data/Dockerfile).
+CONFIG_ARM64_PTR_AUTH=y
+CONFIG_ARM64_PTR_AUTH_KERNEL=y
+
+# Branch Target Identification (BTI): ARM64_BTI itself (the userspace-
+# facing half) has no problematic depends and is enabled here. Its
+# kernel-side companion, ARM64_BTI_KERNEL, is deliberately NOT requested:
+# the actual upstream Kconfig carries an unconditional
+# "depends on !CC_IS_GCC" on it (referencing
+# https://gcc.gnu.org/bugzilla/show_bug.cgi?id=106671) -- i.e. kernel-BTI
+# is Clang-only upstream today, full stop, regardless of GCC version.
+# Requesting it against this project's GCC-based builder would be
+# silently dropped by olddefconfig and caught as a hard failure by
+# verifyFragmentsApplied (the exact "budget for a failed build" this
+# ticket called for) -- rather than chase a Clang toolchain switch for
+# one symbol, this is left as a named gap until that's worth doing.
+CONFIG_ARM64_BTI=y
+
+# panic=10 oops=panic (T62): without it, an arm64 guest that hits an
+# oops or a panic hangs forever instead of rebooting after 10s -- exactly
+# the fleet-silent-black-hole failure mode T10 already closed on amd64
+# (both here and in isolinux's own APPEND line), left open here until
+# now on the one arch that has no isolinux APPEND line to also carry it.
+#
+# CONFIG_CMDLINE_FORCE=y (T63): arm64's spelling of amd64's
+# CONFIG_CMDLINE_OVERRIDE (T8) -- without it this cmdline is only a
+# fallback ("only takes effect when nothing else supplies a command
+# line", as this comment used to say), so any host/firmware that does
+# pass EFI LoadOptions (a real possibility on e.g. Proxmox or a cloud
+# arm64 instance) silently discards this entire line, including
+# panic=10/oops=panic above.
+CONFIG_CMDLINE_FORCE=y
+
+# ipv6.disable=1 (which used to be here) is gone: AD-047 reverses T12's
+# "disable IPv6 at boot instead of building real ip6tables coverage"
+# choice -- see vm-amd64.fragment's own note on this same change.
+CONFIG_CMDLINE="console=ttyAMA0,115200n8 initrd=/EFI/BOOT/INITRD.IMG panic=10 oops=panic"

@@ -1,0 +1,4 @@
+[submodule ".specs"]
+	path = .specs
+	url = git@github.com:samuelgodoy/cnimbus-metadata.git
+	branch = master

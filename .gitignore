@@ -1,0 +1,26 @@
+.cache/
+/cnimbus
+/cnimbus.exe
+/helloserver
+/helloserver.exe
+/cnimbusagent
+/cnimbusagent.exe
+*.lock
+/dist/
+/pieces/
+cmd/cnimbus/pieces/
+*.iso
+*.img
+*.vhd
+examples/*/helloserver
+examples/*/iptables
+examples/*/kv.json
+/qemu-test/work/
+/.golangci-cache/
+/test/
+/.claude/settings.local.json
+
+# Release binaries are built on demand (BUILD.md) and published as
+# GitHub Release assets by release.yml -- never committed to git.
+/bin/
+

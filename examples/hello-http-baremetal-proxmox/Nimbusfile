@@ -1,0 +1,60 @@
+KERNEL latest-stable
+BUSYBOX latest
+ARCH amd64
+HOSTNAME cnimbus-hello-http-demo
+
+# HARDBOOT eth+wifi (F6.7/AD-042) builds both real physical Ethernet
+# chipset drivers AND the 802.11 stack, additive on top of the VM-only
+# drivers (e1000/virtio-net) vm-amd64.fragment already carries -- this
+# is exactly what makes ONE image bootable on real hardware and inside
+# Proxmox unmodified: Proxmox's own virtual NIC is one of the VM drivers
+# already present regardless of HARDBOOT, and a real machine's NIC (or
+# WiFi card) is covered by the drivers HARDBOOT adds on top. Resolved at
+# `prepare` time (it changes the kernel), so it must be passed there
+# too, not just here:
+#
+#   cnimbus prepare --hardboot eth+wifi --vga --out ./pieces
+#
+# HARDBOOT eth+wifi requires WIFI/WIFIPSK/WIFICOUNTRY to all be set
+# (validateWiFiCrossRefs) even though this demo only exercises wired
+# Ethernet on both targets -- the values below are placeholders with no
+# real network to join; wpa_supplicant simply never associates, which is
+# harmless since ENTRYPOINT never depends on wlan0. Replace them with a
+# real SSID/passphrase/country if the actual hardware target needs to
+# associate over WiFi instead of (or in addition to) its wired NIC.
+WIFI cnimbus-placeholder-ssid
+WIFIPSK cnimbus-placeholder-psk
+WIFICOUNTRY US
+HARDBOOT eth+wifi
+
+# VGA true (T59/HB) matches the `--vga` prepare flag above and enables
+# the console IP banner (see internal/rootfs/build.go): with no shell
+# anywhere in this image, reading the assigned address off a physical
+# monitor (or Proxmox's own noVNC/SPICE console) is the only way to
+# learn it without already knowing the DHCP lease from elsewhere.
+VGA true
+DHCP true
+
+COPY ./helloserver /usr/bin/helloserver
+ENTRYPOINT /usr/bin/helloserver
+CMD :8080
+
+# FIREWALL/FIREWALL6 (AD-047): explicitly open to the whole internet on
+# both address families, as requested -- 0.0.0.0/0 for IPv4, ::/0 for
+# IPv6. Loopback and established/related connections are always
+# auto-accepted before either ruleset runs (see buildFirewallScript),
+# so only the entrypoint's own port needs declaring here.
+FIREWALL -P INPUT DROP
+FIREWALL -A INPUT -p tcp -s 0.0.0.0/0 --dport 8080 -j ACCEPT
+FIREWALL6 -P INPUT DROP
+FIREWALL6 -A INPUT -p tcp -s ::/0 --dport 8080 -j ACCEPT
+
+# FORMAT iso: boots on real UEFI bare-metal hardware (via Rufus/
+# balenaEtcher "DD mode" onto a USB stick) AND as a Proxmox VM's virtual
+# CD-ROM, unmodified -- the whole image runs from RAM either way, so
+# there's no separate "disk" to provision on the Proxmox side. Not
+# isohybrid (T80): a legacy-BIOS bare-metal machine will not boot this
+# from a `dd`'d USB stick, only UEFI firmware will (see README's "Known
+# limitations"). Use FORMAT raw instead (examples/hardboot-eth) if the
+# real target machine is BIOS-only.
+FORMAT iso

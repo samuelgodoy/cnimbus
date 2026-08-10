@@ -1,0 +1,19 @@
+KERNEL latest-stable
+BUSYBOX latest
+ARCH amd64
+HOSTNAME cnimbus-agent-vbox-demo
+DHCP true
+
+# Same helloserver as the HTTP AGENT example -- build it first, see
+# this example's README.
+COPY ./helloserver /usr/bin/helloserver
+ENTRYPOINT /usr/bin/helloserver
+CMD :8080
+
+# Reads VirtualBox Guest Property "/cnimbus/message" every 5 seconds via
+# the mainline-kernel VBoxGuest driver (CONFIG_VBOXGUEST) -- no Guest
+# Additions installed in the image at all. VirtualBox-only, but needs
+# no guest networking path to the host whatsoever, unlike the HTTP form.
+AGENT vboxguest /cnimbus/message 5
+
+FORMAT iso
