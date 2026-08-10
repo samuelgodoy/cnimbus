@@ -4,13 +4,15 @@ All notable changes to this project are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/). Releases follow
 [SemVer](https://semver.org/) -- see [RELEASING.md](RELEASING.md) for the
 tagging process and [BUILD.md](BUILD.md) for the underlying
-`-ldflags -X main.version=` mechanism `cnimbus version` reports. No tag
-has been cut yet; everything below is still `[Unreleased]`. This section
-describes the tool's current capabilities, not a chronological log of
-how each one was built -- see `.specs/project/STATE.md` for the
-decision-by-decision history if that's what you're after.
+`-ldflags -X main.version=` mechanism `cnimbus version` reports. Each
+release section below describes the tool's capabilities at that point,
+not a chronological log of how each one was built -- see
+`.specs/project/STATE.md` for the decision-by-decision history if
+that's what you're after.
 
 ## [Unreleased]
+
+## [v0.1.0] - 2026-08-10
 
 ### CLI
 
