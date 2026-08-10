@@ -12,6 +12,14 @@ that's what you're after.
 
 ## [Unreleased]
 
+## [v0.1.1] - 2026-08-10
+
+### Security
+- Updated `golang.org/x/crypto` (v0.41.0 -> v0.54.0) and
+  `github.com/cloudflare/circl` (v1.6.2 -> v1.6.5), closing 16 advisories
+  in the vendored SSH/crypto code paths (7 critical, 2 high, 6 moderate,
+  1 low). No functional changes to cnimbus itself.
+
 ## [v0.1.0] - 2026-08-10
 
 ### CLI
