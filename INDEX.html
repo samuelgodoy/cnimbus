@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>cnimbus — Minimal, Distroless Linux VM Images from a Declarative Manifest</title>
+<meta name="description" content="cnimbus builds minimal, distroless-style, bootable Linux VM images from a declarative Nimbusfile. Runs on QEMU, VirtualBox, VMware, Hyper-V, Proxmox, Firecracker and bare metal. Docker-only build, zero-dependency assembly.">
+<meta name="keywords" content="cnimbus, unikernel, distroless, Linux VM image, Nimbusfile, QEMU, VirtualBox, VMware, Hyper-V, Proxmox, Firecracker, bare metal boot, minimal Linux, Docker, Go">
+<meta name="author" content="samuelgodoy">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://github.com/samuelgodoy/cnimbus">
+
+<!-- Open Graph -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="cnimbus — Minimal, Distroless Linux VM Images from a Declarative Manifest">
+<meta property="og:description" content="Builds minimal, distroless-style, bootable Linux VM images from a declarative Nimbusfile. Runs on QEMU, VirtualBox, VMware, Hyper-V, Proxmox, Firecracker and bare metal.">
+<meta property="og:url" content="https://github.com/samuelgodoy/cnimbus">
+<meta property="og:site_name" content="cnimbus">
+<meta property="og:image" content="https://raw.githubusercontent.com/samuelgodoy/cnimbus/master/INDEX.html">
+
+<!-- Twitter -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="cnimbus — Minimal, Distroless Linux VM Images">
+<meta name="twitter:description" content="Builds minimal, distroless-style, bootable Linux VM images from a declarative Nimbusfile. QEMU, VirtualBox, VMware, Hyper-V, Proxmox, Firecracker, bare metal.">
+
+<!-- Favicon: inline SVG data URI, no external asset, no 404 -->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230a0e17'/%3E%3Cpolygon points='32,8 54,20 54,44 32,56 10,44 10,20' fill='none' stroke='%2300f0ff' stroke-width='3'/%3E%3Ccircle cx='32' cy='32' r='9' fill='%2300f0ff'/%3E%3C/svg%3E">
+
+<!-- Structured data -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "cnimbus",
+  "applicationCategory": "DeveloperApplication",
+  "operatingSystem": "Windows, Linux, macOS",
+  "description": "Builds minimal, distroless-style, bootable Linux VM images from a declarative Nimbusfile manifest, for amd64/arm64 guests, running on QEMU, VirtualBox, VMware, Hyper-V, Proxmox, Firecracker and bare metal.",
+  "url": "https://github.com/samuelgodoy/cnimbus",
+  "downloadUrl": "https://github.com/samuelgodoy/cnimbus/releases/latest",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+  }
+}
+</script>
+
+<style>
+  :root{
+    --bg:#05070c;
+    --bg2:#0a0e17;
+    --panel:#0d1220;
+    --border:#1c2740;
+    --cyan:#00f0ff;
+    --magenta:#ff2fd6;
+    --purple:#8a5cff;
+    --text:#d6e4ff;
+    --text-dim:#7b8bb0;
+    --mono:ui-monospace,SFMono-Regular,"Cascadia Code","Consolas","Liberation Mono",monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    background:
+      radial-gradient(ellipse 80% 50% at 50% -10%, rgba(0,240,255,0.12), transparent),
+      radial-gradient(ellipse 60% 40% at 90% 10%, rgba(138,92,255,0.10), transparent),
+      var(--bg);
+    color:var(--text);
+    font-family:var(--sans);
+    line-height:1.6;
+    overflow-x:hidden;
+  }
+  a{color:var(--cyan);}
+  .grid-overlay{
+    position:fixed;
+    inset:0;
+    background-image:
+      linear-gradient(rgba(0,240,255,0.045) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,240,255,0.045) 1px, transparent 1px);
+    background-size:42px 42px;
+    mask-image:radial-gradient(ellipse 70% 60% at 50% 0%, black, transparent 75%);
+    pointer-events:none;
+    z-index:0;
+  }
+  .wrap{max-width:1080px;margin:0 auto;padding:0 24px;position:relative;z-index:1;}
+
+  /* NAV */
+  nav{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:20px 24px;max-width:1080px;margin:0 auto;position:relative;z-index:2;
+  }
+  .brand{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-weight:700;letter-spacing:.05em;font-size:1.1rem;}
+  .brand svg{filter:drop-shadow(0 0 6px var(--cyan));}
+  nav .links{display:flex;gap:20px;font-family:var(--mono);font-size:.85rem;}
+  nav .links a{color:var(--text-dim);text-decoration:none;transition:color .2s;}
+  nav .links a:hover{color:var(--cyan);}
+
+  /* HERO */
+  header.hero{
+    text-align:center;
+    padding:90px 24px 70px;
+    position:relative;z-index:1;
+  }
+  .eyebrow{
+    display:inline-block;font-family:var(--mono);font-size:.75rem;letter-spacing:.2em;
+    color:var(--cyan);text-transform:uppercase;padding:6px 14px;border:1px solid rgba(0,240,255,0.35);
+    border-radius:999px;background:rgba(0,240,255,0.05);margin-bottom:28px;
+  }
+  h1{
+    font-size:clamp(2.2rem, 6vw, 4rem);
+    margin:0 0 18px;
+    font-weight:800;
+    letter-spacing:-.02em;
+    background:linear-gradient(120deg,#fff 10%, var(--cyan) 45%, var(--purple) 75%, var(--magenta) 100%);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    text-shadow:0 0 60px rgba(0,240,255,0.25);
+  }
+  .tagline{
+    max-width:640px;margin:0 auto 40px;
+    color:var(--text-dim);font-size:clamp(1rem,2.4vw,1.2rem);
+  }
+  .tagline code{color:var(--cyan);background:rgba(0,240,255,0.08);padding:2px 6px;border-radius:4px;font-family:var(--mono);}
+  .cta-row{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;}
+  .btn{
+    font-family:var(--mono);font-size:.9rem;font-weight:600;
+    padding:14px 26px;border-radius:8px;text-decoration:none;
+    display:inline-flex;align-items:center;gap:10px;
+    transition:transform .15s ease, box-shadow .15s ease;
+    border:1px solid transparent;
+  }
+  .btn:hover{transform:translateY(-2px);}
+  .btn-primary{
+    background:linear-gradient(120deg,var(--cyan),var(--purple));
+    color:#04050a;
+    box-shadow:0 0 30px rgba(0,240,255,0.25);
+  }
+  .btn-primary:hover{box-shadow:0 0 45px rgba(0,240,255,0.45);}
+  .btn-ghost{
+    background:rgba(255,255,255,0.03);
+    color:var(--text);
+    border-color:var(--border);
+  }
+  .btn-ghost:hover{border-color:var(--cyan);color:var(--cyan);}
+
+  /* TERMINAL */
+  .terminal{
+    max-width:680px;margin:56px auto 0;
+    background:var(--panel);border:1px solid var(--border);border-radius:12px;
+    overflow:hidden;box-shadow:0 30px 80px -20px rgba(0,240,255,0.15);
+    text-align:left;
+  }
+  .terminal-bar{
+    display:flex;gap:8px;align-items:center;
+    padding:10px 14px;background:#0a0e19;border-bottom:1px solid var(--border);
+  }
+  .terminal-bar span{width:11px;height:11px;border-radius:50%;display:inline-block;}
+  .dot-r{background:#ff5f56;} .dot-y{background:#ffbd2e;} .dot-g{background:#27c93f;}
+  .terminal-title{margin-left:auto;font-family:var(--mono);font-size:.75rem;color:var(--text-dim);}
+  .terminal pre{
+    margin:0;padding:22px;font-family:var(--mono);font-size:.85rem;
+    color:#a9f8ff;overflow-x:auto;
+  }
+  .terminal pre .cmt{color:var(--text-dim);}
+  .terminal pre .kw{color:var(--magenta);}
+
+  /* SECTIONS */
+  section{padding:70px 0;position:relative;z-index:1;}
+  .section-head{text-align:center;max-width:640px;margin:0 auto 50px;}
+  .section-head h2{
+    font-size:clamp(1.6rem,4vw,2.2rem);margin:0 0 14px;
+    color:#fff;letter-spacing:-.01em;
+  }
+  .section-head p{color:var(--text-dim);margin:0;}
+  .accent{color:var(--cyan);}
+
+  .grid{
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));
+    gap:20px;
+  }
+  .card{
+    background:var(--panel);border:1px solid var(--border);border-radius:12px;
+    padding:26px;transition:border-color .2s, transform .2s;
+  }
+  .card:hover{border-color:rgba(0,240,255,0.4);transform:translateY(-3px);}
+  .card .icon{
+    width:42px;height:42px;border-radius:10px;
+    display:flex;align-items:center;justify-content:center;
+    background:linear-gradient(135deg,rgba(0,240,255,0.15),rgba(138,92,255,0.15));
+    margin-bottom:16px;
+  }
+  .card h3{margin:0 0 8px;font-size:1.05rem;color:#fff;}
+  .card p{margin:0;color:var(--text-dim);font-size:.92rem;}
+
+  .platforms{
+    display:flex;flex-wrap:wrap;gap:12px;justify-content:center;
+  }
+  .platform-chip{
+    font-family:var(--mono);font-size:.82rem;
+    padding:10px 18px;border:1px solid var(--border);border-radius:999px;
+    background:rgba(255,255,255,0.02);color:var(--text-dim);
+  }
+  .platform-chip strong{color:var(--cyan);font-weight:600;}
+
+  .divider{
+    height:1px;max-width:1080px;margin:0 auto;
+    background:linear-gradient(90deg,transparent,var(--border),transparent);
+  }
+
+  footer{
+    padding:50px 24px 40px;text-align:center;
+    color:var(--text-dim);font-size:.85rem;
+  }
+  footer a{color:var(--text-dim);text-decoration:underline;text-underline-offset:3px;}
+  footer a:hover{color:var(--cyan);}
+  footer .foot-links{
+    display:flex;gap:22px;justify-content:center;flex-wrap:wrap;margin-bottom:20px;
+    font-family:var(--mono);
+  }
+
+  @media (max-width:640px){
+    nav .links{display:none;}
+    .cta-row{flex-direction:column;align-items:stretch;}
+    .btn{justify-content:center;}
+  }
+</style>
+</head>
+<body>
+<div class="grid-overlay" aria-hidden="true"></div>
+
+<nav>
+  <div class="brand">
+    <svg width="26" height="26" viewBox="0 0 64 64" aria-hidden="true">
+      <polygon points="32,8 54,20 54,44 32,56 10,44 10,20" fill="none" stroke="#00f0ff" stroke-width="4"/>
+      <circle cx="32" cy="32" r="9" fill="#00f0ff"/>
+    </svg>
+    cnimbus
+  </div>
+  <div class="links">
+    <a href="#features">Features</a>
+    <a href="#platforms">Platforms</a>
+    <a href="#quickstart">Quick Start</a>
+    <a href="https://github.com/samuelgodoy/cnimbus" rel="noopener">GitHub</a>
+  </div>
+</nav>
+
+<header class="hero">
+  <span class="eyebrow">// distroless linux vm images</span>
+  <h1>Boot the minimum.<br>Ship nothing else.</h1>
+  <p class="tagline">
+    <strong>cnimbus</strong> compiles a real, unmodified Linux kernel plus BusyBox
+    into a minimal, distroless-style VM image — declared in one file, a
+    <code>Nimbusfile</code>, and assembled with zero runtime dependencies once built.
+  </p>
+  <div class="cta-row">
+    <a class="btn btn-primary" href="https://github.com/samuelgodoy/cnimbus/releases/latest" rel="noopener">
+      ⬇ Latest Release
+    </a>
+    <a class="btn btn-ghost" href="https://github.com/samuelgodoy/cnimbus" rel="noopener">
+      ★ View on GitHub
+    </a>
+  </div>
+
+  <div class="terminal" role="img" aria-label="Terminal example showing how to build and run a cnimbus image">
+    <div class="terminal-bar">
+      <span class="dot-r"></span><span class="dot-y"></span><span class="dot-g"></span>
+      <span class="terminal-title">sh — cnimbus</span>
+    </div>
+    <pre><span class="cmt"># compile the kernel + BusyBox "pieces" (needs Docker, once)</span>
+<span class="kw">$</span> cnimbus prepare --arch amd64 --out ./pieces
+
+<span class="cmt"># declare your image</span>
+<span class="kw">$</span> cnimbus init
+
+<span class="cmt"># assemble a bootable image -- pure Go, zero dependencies from here on</span>
+<span class="kw">$</span> cnimbus build-disk --pieces ./pieces -o my-image.iso</pre>
+  </div>
+</header>
+
+<div class="divider"></div>
+
+<section id="features">
+  <div class="wrap">
+    <div class="section-head">
+      <h2>Not a container. Not quite a <span class="accent">unikernel</span> either.</h2>
+      <p>Same goal as MirageOS, Unikraft or OSv — single workload, no shell, no login,
+         minimal attack surface — reached with a real mainline kernel instead of a
+         purpose-built library OS.</p>
+    </div>
+    <div class="grid">
+      <div class="card">
+        <div class="icon">🧬</div>
+        <h3>Nimbusfile</h3>
+        <p>A Dockerfile-style manifest declares the kernel, BusyBox version,
+           architecture, and everything that runs at boot. One file drives the
+           whole pipeline, and it's reproducible.</p>
+      </div>
+      <div class="card">
+        <div class="icon">📦</div>
+        <h3>Two-command split</h3>
+        <p><code>prepare</code> is the only step that touches Docker, compiling the
+           kernel/BusyBox/iptables once. <code>build-disk</code> is pure Go —
+           no Docker, no compiler, ever again.</p>
+      </div>
+      <div class="card">
+        <div class="icon">🛰️</div>
+        <h3>Live config, no reboot</h3>
+        <p>The <code>AGENT</code> directive polls HTTP, VirtualBox Guest Properties,
+           virtio-serial, VMware's backdoor protocol, or cloud metadata services —
+           config changes reach a running VM in seconds.</p>
+      </div>
+      <div class="card">
+        <div class="icon">🛡️</div>
+        <h3>Signed, hardened boot</h3>
+        <p>Kernel PGP verification, Ed25519-signed pieces, and pure-Go
+           <code>--secureboot</code>/<code>--uki</code> signing — no shim, no MOK,
+           no external signing toolchain.</p>
+      </div>
+      <div class="card">
+        <div class="icon">🔥</div>
+        <h3>Bare-metal capable</h3>
+        <p><code>HARDBOOT</code> builds real Ethernet and WiFi chipset drivers plus a
+           static WPA supplicant, for images that boot real hardware from a USB
+           stick — opt-in, inert by default.</p>
+      </div>
+      <div class="card">
+        <div class="icon">🌐</div>
+        <h3>IPv4 + IPv6 firewalling</h3>
+        <p><code>FIREWALL</code>/<code>FIREWALL6</code> apply real, static
+           <code>iptables</code>/<code>ip6tables</code> rules at boot — RFC 4890
+           ICMPv6 essentials auto-injected so IPv6 never breaks silently.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<section id="platforms">
+  <div class="wrap">
+    <div class="section-head">
+      <h2>Boots where your infrastructure already runs</h2>
+      <p>Reaches a working network and runs your userland binary the same way,
+         everywhere.</p>
+    </div>
+    <div class="platforms">
+      <span class="platform-chip"><strong>QEMU</strong> · BIOS + UEFI</span>
+      <span class="platform-chip"><strong>VirtualBox</strong></span>
+      <span class="platform-chip"><strong>VMware</strong> Player/Workstation</span>
+      <span class="platform-chip"><strong>Hyper-V</strong> · Gen 1 + 2</span>
+      <span class="platform-chip"><strong>Proxmox</strong></span>
+      <span class="platform-chip"><strong>Firecracker</strong></span>
+      <span class="platform-chip"><strong>Bare metal</strong> · USB boot</span>
+      <span class="platform-chip">amd64 · arm64</span>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<section id="quickstart">
+  <div class="wrap">
+    <div class="section-head">
+      <h2>Docker is the only prerequisite</h2>
+      <p>No local Go install, no SDKs, no cross toolchains — for compiling
+         <code>cnimbus</code> itself, or for running <code>prepare</code>.</p>
+    </div>
+    <div class="terminal" style="max-width:720px;margin:0 auto;">
+      <div class="terminal-bar">
+        <span class="dot-r"></span><span class="dot-y"></span><span class="dot-g"></span>
+        <span class="terminal-title">sh — build from source</span>
+      </div>
+      <pre><span class="cmt"># build cnimbus itself, entirely inside Docker</span>
+<span class="kw">$</span> docker run --rm -v "$(pwd)":/src -w /src \
+    -e CGO_ENABLED=0 -e GOOS=linux -e GOARCH=amd64 \
+    golang:1.26.5 go build -o cnimbus ./cmd/cnimbus</pre>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="foot-links">
+    <a href="https://github.com/samuelgodoy/cnimbus" rel="noopener">GitHub Repository</a>
+    <a href="https://github.com/samuelgodoy/cnimbus/releases/latest" rel="noopener">Latest Release</a>
+    <a href="https://github.com/samuelgodoy/cnimbus/blob/master/README.md" rel="noopener">README (PT-BR)</a>
+    <a href="https://github.com/samuelgodoy/cnimbus/blob/master/README.en.md" rel="noopener">README (English)</a>
+    <a href="https://github.com/samuelgodoy/cnimbus/blob/master/docs/manual/cnimbus-manual.pdf" rel="noopener">User Manual</a>
+  </div>
+  <p>cnimbus is open source. See the repository for license details.</p>
+</footer>
+
+</body>
+</html>
