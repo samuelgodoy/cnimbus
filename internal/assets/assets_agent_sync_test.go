@@ -14,10 +14,11 @@ import (
 // Rebuilds fresh copies with the exact same flags as
 // internal/assets/genagent and compares bytes; -trimpath alone is not
 // enough for this to be reproducible across separate build invocations
-// (the linker's build ID varies build-to-build even for identical
-// source/flags/Go version) -- -buildid= is what actually makes it
-// deterministic, confirmed empirically. Run `go generate
-// ./internal/assets` and commit the result if this fails.
+// -- the linker's build ID varies build-to-build regardless of it, and
+// Go's automatic VCS stamping varies between separate `git clone`s of
+// the identical commit -- -buildid= and -buildvcs=false are both
+// required, confirmed empirically. Run `go generate ./internal/assets`
+// and commit the result if this fails.
 func TestCnimbusAgentInSyncWithEmbeddedCopy(t *testing.T) {
 	root, err := filepath.Abs(filepath.Join("..", ".."))
 	if err != nil {
@@ -31,7 +32,7 @@ func TestCnimbusAgentInSyncWithEmbeddedCopy(t *testing.T) {
 
 	for arch, want := range embedded {
 		out := filepath.Join(t.TempDir(), "cnimbusagent-"+arch)
-		cmd := exec.Command("go", "build", "-trimpath", "-ldflags", "-s -w -buildid=", "-o", out, "./cmd/cnimbusagent")
+		cmd := exec.Command("go", "build", "-trimpath", "-buildvcs=false", "-ldflags", "-s -w -buildid=", "-o", out, "./cmd/cnimbusagent")
 		cmd.Dir = root
 		cmd.Env = append(os.Environ(), "GOOS=linux", "GOARCH="+arch, "CGO_ENABLED=0")
 		if out, err := cmd.CombinedOutput(); err != nil {

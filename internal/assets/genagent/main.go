@@ -43,7 +43,16 @@ func main() {
 		// fresh, independent containers building the exact same commit
 		// produced different bytes until this flag was added). An empty
 		// buildid is the standard fix for exactly this.
-		cmd := exec.Command("go", "build", "-trimpath", "-ldflags", "-s -w -buildid=", "-o", out, "./cmd/cnimbusagent")
+		// -buildvcs=false: still not sufficient by itself -- Go 1.18+
+		// auto-embeds VCS info (commit hash, dirty flag) via
+		// runtime/debug.ReadBuildInfo whenever the build runs inside a
+		// git repo, and that embedded data varies between separate
+		// `git clone` invocations of the identical commit (confirmed
+		// empirically: the dirty-tree heuristic isn't stable across
+		// fresh clones). This binary's own version string comes from
+		// -ldflags -X elsewhere in this project already, so VCS
+		// stamping adds nothing here besides non-determinism.
+		cmd := exec.Command("go", "build", "-trimpath", "-buildvcs=false", "-ldflags", "-s -w -buildid=", "-o", out, "./cmd/cnimbusagent")
 		cmd.Dir = root
 		cmd.Env = append(os.Environ(), "GOOS=linux", "GOARCH="+arch, "CGO_ENABLED=0")
 		cmd.Stdout = os.Stdout
