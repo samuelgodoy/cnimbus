@@ -36,7 +36,14 @@ func main() {
 		// this binary is never debugged in place (it's a tiny guest
 		// process with no crash-reporting story of its own), and every
 		// image cnimbus builds is size-conscious by design.
-		cmd := exec.Command("go", "build", "-trimpath", "-ldflags", "-s -w", "-o", out, "./cmd/cnimbusagent")
+		// -buildid=: -trimpath alone is NOT enough for byte-for-byte
+		// reproducibility -- the linker still embeds a build ID that
+		// varies between separate `go build` invocations even for
+		// identical source/flags/Go version (confirmed empirically: two
+		// fresh, independent containers building the exact same commit
+		// produced different bytes until this flag was added). An empty
+		// buildid is the standard fix for exactly this.
+		cmd := exec.Command("go", "build", "-trimpath", "-ldflags", "-s -w -buildid=", "-o", out, "./cmd/cnimbusagent")
 		cmd.Dir = root
 		cmd.Env = append(os.Environ(), "GOOS=linux", "GOARCH="+arch, "CGO_ENABLED=0")
 		cmd.Stdout = os.Stdout
