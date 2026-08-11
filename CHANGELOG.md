@@ -12,6 +12,33 @@ that's what you're after.
 
 ## [Unreleased]
 
+## [v0.1.2] - 2026-08-10
+
+### Added
+- A responsive, SEO-friendly landing page (`index.html`), published via
+  GitHub Pages at https://samuelgodoy.github.io/cnimbus/, with a
+  quick-start terminal walkthrough, feature overview, and links to the
+  repository and latest release.
+
+### Security
+- Fixed a shell-script-injection vector in `release.yml`: tag/repository
+  values interpolated directly into a `run:` step are now passed through
+  `env:` and referenced as shell variables instead.
+- Added explicit least-privilege `permissions:` to `ci.yml`.
+
+### Fixed
+- `ci.yml` was triggering on `branches: [main]`, but the repository's
+  default branch is `master` -- CI had never actually run on a push
+  before this fix. Corrected the trigger and fixed everything CI's first
+  real run surfaced: `gofmt` drift, and 21 `golangci-lint` findings
+  (errcheck, gosec G115, staticcheck, unused).
+- Fixed a build-reproducibility bug in the embedded `cnimbusagent`
+  binaries: `-trimpath` alone doesn't produce byte-identical builds
+  across separate invocations. The Go linker's build ID
+  (`-buildid=`) and Go's automatic VCS/git-dirty-state stamping
+  (`-buildvcs=false`) both needed to be pinned; verified byte-for-byte
+  identical across independent clean builds.
+
 ## [v0.1.1] - 2026-08-10
 
 ### Security
