@@ -270,7 +270,7 @@
 <span class="kw">$</span> cnimbus init
 
 <span class="cmt"># compile the kernel + BusyBox "pieces" (needs Docker, once)</span>
-<span class="kw">$</span> cnimbus prepare --arch amd64 --out ./pieces
+<span class="kw">$</span> cnimbus prepare -f Nimbusfile --arch amd64 --out ./pieces
 
 <span class="cmt"># assemble a bootable image -- pure Go, zero dependencies from here on</span>
 <span class="kw">$</span> cnimbus build-disk --pieces ./pieces -o my-image.iso</pre>
