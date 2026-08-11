@@ -1215,7 +1215,7 @@ func TestParsePIECESKEY(t *testing.T) {
 	for _, bad := range []string{
 		"PIECESKEY \n",
 		"PIECESKEY nothex\n",
-		"PIECESKEY ab\n",                        // too short
+		"PIECESKEY ab\n", // too short
 		"PIECESKEY " + strings.Repeat("ab", 40) + "\n", // too long
 	} {
 		if _, err := Parse(writeTemp(t, bad), nil); err == nil {

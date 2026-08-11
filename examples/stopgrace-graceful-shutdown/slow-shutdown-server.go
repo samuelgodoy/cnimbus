@@ -31,9 +31,15 @@ func main() {
 		wg.Add(1)
 		defer wg.Done()
 		time.Sleep(8 * time.Second) // the "transaction"
-		fmt.Fprintln(w, "slow-shutdown-server: transaction committed")
+		if _, err := fmt.Fprintln(w, "slow-shutdown-server: transaction committed"); err != nil {
+			log.Println("slow-shutdown-server: write failed:", err)
+		}
 	})
 
 	log.Println("slow-shutdown-server listening on :8080")
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	srv := &http.Server{
+		Addr:              ":8080",
+		ReadHeaderTimeout: 10 * time.Second,
+	}
+	log.Fatal(srv.ListenAndServe())
 }

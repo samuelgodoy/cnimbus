@@ -52,29 +52,29 @@ func buildMinimalPE(t *testing.T, extraSections int) []byte {
 
 	fh := buf[fileHeaderOff:]
 	binary.LittleEndian.PutUint16(fh[0:], 0x8664) // Machine: AMD64
-	binary.LittleEndian.PutUint16(fh[2:], 1)       // NumberOfSections
+	binary.LittleEndian.PutUint16(fh[2:], 1)      // NumberOfSections
 	binary.LittleEndian.PutUint16(fh[16:], sizeOfOptHdr)
 
 	oh := buf[optionalHdrOff:]
 	binary.LittleEndian.PutUint16(oh[0:], magicPE32p)
-	binary.LittleEndian.PutUint32(oh[4:], textRawSize)    // SizeOfCode
-	binary.LittleEndian.PutUint32(oh[16:], textVA)        // AddressOfEntryPoint
-	binary.LittleEndian.PutUint32(oh[20:], textVA)        // BaseOfCode
-	binary.LittleEndian.PutUint64(oh[24:], 0x140000000)   // ImageBase
-	binary.LittleEndian.PutUint32(oh[32:], sectionAlign)  // SectionAlignment
-	binary.LittleEndian.PutUint32(oh[36:], fileAlignment) // FileAlignment
+	binary.LittleEndian.PutUint32(oh[4:], textRawSize)                                      // SizeOfCode
+	binary.LittleEndian.PutUint32(oh[16:], textVA)                                          // AddressOfEntryPoint
+	binary.LittleEndian.PutUint32(oh[20:], textVA)                                          // BaseOfCode
+	binary.LittleEndian.PutUint64(oh[24:], 0x140000000)                                     // ImageBase
+	binary.LittleEndian.PutUint32(oh[32:], sectionAlign)                                    // SectionAlignment
+	binary.LittleEndian.PutUint32(oh[36:], fileAlignment)                                   // FileAlignment
 	binary.LittleEndian.PutUint32(oh[56:], uint32(textVA+align(textRawSize, sectionAlign))) // SizeOfImage
-	binary.LittleEndian.PutUint32(oh[60:], uint32(sizeOfHeaders))                          // SizeOfHeaders
-	binary.LittleEndian.PutUint16(oh[68:], 10)                                     // Subsystem: EFI application
-	binary.LittleEndian.PutUint32(oh[108:], 16)                                    // NumberOfRvaAndSizes
+	binary.LittleEndian.PutUint32(oh[60:], uint32(sizeOfHeaders))                           // SizeOfHeaders
+	binary.LittleEndian.PutUint16(oh[68:], 10)                                              // Subsystem: EFI application
+	binary.LittleEndian.PutUint32(oh[108:], 16)                                             // NumberOfRvaAndSizes
 
 	sh := buf[sectionHdrOff:]
 	copy(sh[0:8], []byte(".text\x00\x00\x00"))
-	binary.LittleEndian.PutUint32(sh[8:], textRawSize)  // VirtualSize
-	binary.LittleEndian.PutUint32(sh[12:], textVA)       // VirtualAddress
-	binary.LittleEndian.PutUint32(sh[16:], textRawSize)  // SizeOfRawData
+	binary.LittleEndian.PutUint32(sh[8:], textRawSize)         // VirtualSize
+	binary.LittleEndian.PutUint32(sh[12:], textVA)             // VirtualAddress
+	binary.LittleEndian.PutUint32(sh[16:], textRawSize)        // SizeOfRawData
 	binary.LittleEndian.PutUint32(sh[20:], uint32(textRawOff)) // PointerToRawData
-	binary.LittleEndian.PutUint32(sh[36:], 0x60000020)   // CODE|EXECUTE|READ
+	binary.LittleEndian.PutUint32(sh[36:], 0x60000020)         // CODE|EXECUTE|READ
 
 	for i := textRawOff; i < len(buf); i++ {
 		buf[i] = 0xCC

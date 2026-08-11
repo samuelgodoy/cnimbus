@@ -76,17 +76,17 @@ func TestCheckShadowedFilesFitTmpfsChecksDirectoriesIndependently(t *testing.T) 
 
 func TestBuildStage1InitUsesTmpfsSizeOverride(t *testing.T) {
 	script := buildStage1Init(nil, nil, "128m")
-	if !strings.Contains(script,"size=128m tmpfs /mnt/root/bin") {
+	if !strings.Contains(script, "size=128m tmpfs /mnt/root/bin") {
 		t.Errorf("expected the tmpfs mount lines to use the overridden size: %q", script)
 	}
-	if strings.Contains(script,"size=32m") {
+	if strings.Contains(script, "size=32m") {
 		t.Errorf("did not expect the default size to appear when TMPSIZE overrides it: %q", script)
 	}
 }
 
 func TestBuildStage1InitDefaultsTmpfsSizeWhenEmpty(t *testing.T) {
 	script := buildStage1Init(nil, nil, "")
-	if !strings.Contains(script,"size=32m tmpfs /mnt/root/bin") {
+	if !strings.Contains(script, "size=32m tmpfs /mnt/root/bin") {
 		t.Errorf("expected the default tmpfs size when no override is given: %q", script)
 	}
 }

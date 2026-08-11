@@ -121,15 +121,15 @@ func TestValidateHostfwd(t *testing.T) {
 
 	invalid := []string{
 		"8080",           // the exact failure scenario: forgot the host:guest form
-		"",                // empty
-		"8080:",           // missing guest port
-		":8080",           // missing host port
-		"8080:8080:8080",  // too many colons
-		"0:8080",          // host port out of range (0)
-		"8080:0",          // guest port out of range (0)
-		"8080:65536",      // guest port out of range (too large)
-		"abc:8080",        // host port not a number
-		"8080:abc",        // guest port not a number
+		"",               // empty
+		"8080:",          // missing guest port
+		":8080",          // missing host port
+		"8080:8080:8080", // too many colons
+		"0:8080",         // host port out of range (0)
+		"8080:0",         // guest port out of range (0)
+		"8080:65536",     // guest port out of range (too large)
+		"abc:8080",       // host port not a number
+		"8080:abc",       // guest port not a number
 	}
 	for _, hf := range invalid {
 		if err := validateHostfwd(hf); err == nil {

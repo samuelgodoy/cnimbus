@@ -122,13 +122,6 @@ func hasWifiDriver(profile string) bool {
 	return profile == "wifi" || profile == "eth+wifi"
 }
 
-// hasEthDriver reports whether profile is a wired-Ethernet-driver boot
-// profile: "eth", or its explicit-both-drivers spelling "eth+wifi" (see
-// internal/nimbusfile's HARDBOOT doc comment).
-func hasEthDriver(profile string) bool {
-	return profile == "eth" || profile == "eth+wifi"
-}
-
 // hashesFileName is written by `cnimbus prepare` alongside vmlinuz/busybox/
 // busybox-manifest.tsv: one "<sha256-hex>  <filename>" line per file,
 // the same format `sha256sum` produces (so it's independently

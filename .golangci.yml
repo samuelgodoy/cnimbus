@@ -65,6 +65,19 @@ linters:
         # their own machine, during their own build -- not a
         # multi-tenant service walking untrusted/attacker-writable trees.
         - G122
+        # G115 (int -> smaller/unsigned-int conversion could overflow):
+        # every flagged site is a fixed-width field in a binary format
+        # this project itself constructs from locally-computed, format-
+        # bounded values -- VHD CHS geometry (rawimage/run_vhd, capped
+        # by the spec's own translation algorithm), PE/COFF section and
+        # certificate-table lengths (secureboot), GPT sector/byte math
+        # (rawimage, bounded by realistic disk sizes), and a VMware
+        # backdoor protocol reply already masked to 32 bits by the shift
+        # before conversion (cnimbusagent). None of these convert
+        # attacker-controlled network input; every value already has a
+        # narrower real-world ceiling than the smaller type before the
+        # conversion runs.
+        - G115
   exclusions:
     paths:
       - internal/assets/data/thunder-src/vendor

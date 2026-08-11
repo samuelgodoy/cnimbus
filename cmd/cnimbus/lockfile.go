@@ -19,16 +19,16 @@ import (
 // someone else's machine) can confirm whether they got the same bits,
 // not just the same Nimbusfile.
 type BuildLock struct {
-	CnimbusVersion       string `json:"cnimbus_version"`
-	BuiltAt              string `json:"built_at"` // RFC3339
-	Nimbusfile           string `json:"nimbusfile"`
-	NimbusfileSHA256     string `json:"nimbusfile_sha256"`
-	Arch                 string `json:"arch"`
-	Format               string `json:"format"`
-	PiecesSource         string `json:"pieces_source"`
-	VmlinuzSHA256        string `json:"vmlinuz_sha256"`
-	BusyboxSHA256        string `json:"busybox_sha256"`
-	ManifestSHA256       string `json:"busybox_manifest_sha256"`
+	CnimbusVersion   string `json:"cnimbus_version"`
+	BuiltAt          string `json:"built_at"` // RFC3339
+	Nimbusfile       string `json:"nimbusfile"`
+	NimbusfileSHA256 string `json:"nimbusfile_sha256"`
+	Arch             string `json:"arch"`
+	Format           string `json:"format"`
+	PiecesSource     string `json:"pieces_source"`
+	VmlinuzSHA256    string `json:"vmlinuz_sha256"`
+	BusyboxSHA256    string `json:"busybox_sha256"`
+	ManifestSHA256   string `json:"busybox_manifest_sha256"`
 	// IptablesSHA256 is empty when no FIREWALL directive is present (no
 	// iptables binary -- bundled or COPY'd -- is injected into the image
 	// at all in that case) or the bundled binary predates this feature

@@ -22,7 +22,7 @@ type launchSpec struct {
 	arch        string
 	uefi        bool
 	memMB       int
-	smp         int    // qemu only
+	smp         int // qemu only
 	hostfwd     string
 	hostfwdBind string
 	vmName      string

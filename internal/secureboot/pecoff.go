@@ -42,10 +42,10 @@ const (
 	// omits, then ImageBase's width itself differs: 4 bytes vs 8), so
 	// everything below fileAlignment onward is expressed relative to a
 	// magic-dependent base computed at parse time.
-	ohMagic = 0
-	ohSizeOfCode = 4
+	ohMagic                 = 0
+	ohSizeOfCode            = 4
 	ohSizeOfInitializedData = 8
-	ohBaseOfCode = 20 // PE32 only has BaseOfData at 24 in addition; unused here
+	ohBaseOfCode            = 20 // PE32 only has BaseOfData at 24 in addition; unused here
 
 	imageBase32Offset = 28 // PE32: 4-byte ImageBase at 28
 	imageBase64Offset = 24 // PE32+: 8-byte ImageBase at 24 (no BaseOfData field)
@@ -72,11 +72,11 @@ const (
 // terms of them instead of re-deriving e_lfanew/optionalHeaderOffset
 // each time.
 type peLayout struct {
-	ntHeaderOffset      int // offset of "PE\0\0"
-	fileHeaderOffset    int
+	ntHeaderOffset       int // offset of "PE\0\0"
+	fileHeaderOffset     int
 	optionalHeaderOffset int
-	sectionHeaderOffset int // == optionalHeaderOffset + SizeOfOptionalHeader
-	numberOfSections    int
+	sectionHeaderOffset  int // == optionalHeaderOffset + SizeOfOptionalHeader
+	numberOfSections     int
 	sizeOfOptionalHeader int
 
 	isPE32Plus bool
@@ -105,7 +105,7 @@ func parsePELayout(data []byte) (peLayout, error) {
 	if ntHeaderOffset <= 0 || ntHeaderOffset+peSignatureSize+fileHeaderSize > len(data) {
 		return l, errNotPE
 	}
-	if !(data[ntHeaderOffset] == 'P' && data[ntHeaderOffset+1] == 'E' && data[ntHeaderOffset+2] == 0 && data[ntHeaderOffset+3] == 0) {
+	if data[ntHeaderOffset] != 'P' || data[ntHeaderOffset+1] != 'E' || data[ntHeaderOffset+2] != 0 || data[ntHeaderOffset+3] != 0 {
 		return l, errNotPE
 	}
 	l.ntHeaderOffset = ntHeaderOffset

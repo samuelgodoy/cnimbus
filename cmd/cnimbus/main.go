@@ -33,11 +33,11 @@ import (
 // Usage errors (bad flags, unknown subcommand) already exit 2 via
 // flag.ExitOnError / the default case below, unchanged by this table.
 const (
-	exitGeneric             = 1
-	exitUsage               = 2
+	exitGeneric               = 1
+	exitUsage                 = 2
 	exitMissingHostDependency = 3
-	exitVerificationFailure = 4
-	exitUpstreamFetchFailure = 5
+	exitVerificationFailure   = 4
+	exitUpstreamFetchFailure  = 5
 )
 
 // exitCodeFor maps a failure to its exit code by matching sentinel

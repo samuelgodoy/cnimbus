@@ -240,7 +240,7 @@ func TestBuildFirewallScriptAutoInjectsLoopbackAndEstablished(t *testing.T) {
 	if loopbackIdx < 0 || establishedIdx < 0 {
 		t.Fatalf("expected loopback and established/related rules to be auto-injected: %q", script)
 	}
-	if !(loopbackIdx < userRuleIdx && establishedIdx < userRuleIdx) {
+	if loopbackIdx >= userRuleIdx || establishedIdx >= userRuleIdx {
 		t.Errorf("expected the auto-injected rules before the user's own rule: %q", script)
 	}
 }
@@ -581,7 +581,7 @@ func TestBuildRCScriptDiagnosesEthDriverAndCarrierState(t *testing.T) {
 	pollIdx := strings.Index(script, "for i in 1 2 3;")
 	printIdx := strings.Index(script, "cnimbus: eth0 carrier=")
 	udhcpcIdx := strings.Index(script, "udhcpc -i eth0")
-	if !(pollIdx > 0 && pollIdx < printIdx && printIdx < udhcpcIdx) {
+	if pollIdx <= 0 || pollIdx >= printIdx || printIdx >= udhcpcIdx {
 		t.Errorf("expected carrier poll, then carrier print, then udhcpc, in that order: poll=%d print=%d udhcpc=%d", pollIdx, printIdx, udhcpcIdx)
 	}
 }
@@ -642,7 +642,7 @@ func TestBuildRCScriptDiagnosesIPv6State(t *testing.T) {
 	udhcpcIdx := strings.Index(dhcpScript, "udhcpc -i eth0")
 	ipv6Idx := strings.Index(dhcpScript, "eth0 ipv6 addrs")
 	checkpointIdx := strings.Index(dhcpScript, "eth0 network setup done")
-	if !(udhcpcIdx > 0 && udhcpcIdx < ipv6Idx && ipv6Idx < checkpointIdx) {
+	if udhcpcIdx <= 0 || udhcpcIdx >= ipv6Idx || ipv6Idx >= checkpointIdx {
 		t.Errorf("expected udhcpc, then ipv6 diagnostics, then the checkpoint, in that order: udhcpc=%d ipv6=%d checkpoint=%d", udhcpcIdx, ipv6Idx, checkpointIdx)
 	}
 

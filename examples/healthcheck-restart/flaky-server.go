@@ -27,7 +27,9 @@ func main() {
 		if wedged.Load() {
 			select {} // block forever, never respond
 		}
-		fmt.Fprintln(w, "flaky-server: ok")
+		if _, err := fmt.Fprintln(w, "flaky-server: ok"); err != nil {
+			log.Println("flaky-server: write failed:", err)
+		}
 	})
 	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		if wedged.Load() {
@@ -37,5 +39,9 @@ func main() {
 	})
 
 	log.Println("flaky-server listening on :8080")
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	srv := &http.Server{
+		Addr:              ":8080",
+		ReadHeaderTimeout: 10 * time.Second,
+	}
+	log.Fatal(srv.ListenAndServe())
 }

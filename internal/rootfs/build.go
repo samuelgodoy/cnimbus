@@ -1304,7 +1304,7 @@ func buildFirewallScript(rules []string, onError string, ipv6 bool) string {
 	if ipv6 {
 		family = "IPv6"
 	}
-	b.WriteString(fmt.Sprintf("/bin/sh /etc/cnimbus-say \"cnimbus: firewall (%s) fallback-on-error mode: %s\"\n", family, shQuote(effectiveFirewallOnError(onError))))
+	fmt.Fprintf(&b, "/bin/sh /etc/cnimbus-say \"cnimbus: firewall (%s) fallback-on-error mode: %s\"\n", family, shQuote(effectiveFirewallOnError(onError)))
 	autoRules := []string{
 		"-A INPUT -i lo -j ACCEPT",
 		"-A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT",

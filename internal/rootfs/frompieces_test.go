@@ -42,7 +42,7 @@ func TestBuildImagesRoutesSupervisorAndAgentScriptsThroughStage1(t *testing.T) {
 
 	wantPerm := map[string]uint32{
 		"shadow/" + trimLeadingSlash(supervisorScriptPath("entrypoint")): 0o600,
-		"shadow/" + trimLeadingSlash(agentScriptPath):                   0o600,
+		"shadow/" + trimLeadingSlash(agentScriptPath):                    0o600,
 	}
 	found := map[string]bool{}
 	var initScript string
